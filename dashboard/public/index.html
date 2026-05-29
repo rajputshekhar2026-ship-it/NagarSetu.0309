@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NagarSetu — Municipal Command Center</title>
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1A1A3E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NagarSetu">
+<meta name="description" content="NagarSetu Municipal Command Center — Live SOS, Incidents & Risk Intelligence">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<style>
+:root{
+  --navy:#1A1A3E;--civic:#2D468C;--electric:#00D4FF;
+  --sos-orange:#F97316;--sos-red:#E53935;--emerald:#2ECC71;--amber:#F57F17;
+  --font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace;
+  --r:12px;--r-sm:8px;--ease:cubic-bezier(.4,0,.2,1);
+}
+[data-theme="light"]{
+  --bg:#F0F4FB;--surface:#fff;--s2:#F5F7FC;--s3:#EBF0FA;
+  --text:#1A1A3E;--t2:#5A6480;
+  --border:rgba(45,70,140,.10);--border-s:rgba(45,70,140,.22);
+  --card:#fff;--shadow:0 4px 20px rgba(45,70,140,.10);--shadow-sm:0 2px 8px rgba(45,70,140,.07);
+  --sb:#1A1A3E;--sb-t:rgba(255,255,255,.68);--sb-act:rgba(255,255,255,.12);
+  --sb-bdr:rgba(255,255,255,.08);--sb-acc:#00D4FF;--sb-hov:rgba(255,255,255,.07);
+  --hdr:linear-gradient(135deg,#1A237E,#2D468C);--hdr-t:#fff;--hdr-sub:rgba(255,255,255,.65);
+  --cg:rgba(45,70,140,.05);--ct:#8A96B0;
+}
+[data-theme="dark"]{
+  --bg:#080818;--surface:#131328;--s2:#1C1C38;--s3:#242448;
+  --text:#E8E8FF;--t2:#8888AA;
+  --border:rgba(0,212,255,.10);--border-s:rgba(0,212,255,.22);
+  --card:rgba(19,19,40,.92);--shadow:0 8px 32px rgba(0,0,0,.5);--shadow-sm:0 2px 12px rgba(0,0,0,.35);
+  --sb:#0D0D20;--sb-t:rgba(255,255,255,.60);--sb-act:rgba(0,212,255,.12);
+  --sb-bdr:rgba(0,212,255,.08);--sb-acc:#00D4FF;--sb-hov:rgba(255,255,255,.05);
+  --hdr:var(--surface);--hdr-t:#E8E8FF;--hdr-sub:#8888AA;
+  --cg:rgba(255,255,255,.04);--ct:#8888AA;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--s3);border-radius:99px}
+
+/* LAYOUT */
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:256px;flex-shrink:0;background:var(--sb);border-right:1px solid var(--sb-bdr);display:flex;flex-direction:column;transition:transform .3s var(--ease);z-index:200;overflow:hidden}
+.sb-logo{padding:20px 18px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--sb-bdr);flex-shrink:0}
+.sb-logo-icon{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#2D468C,#00D4FF);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 12px rgba(0,212,255,.25);flex-shrink:0}
+.sb-logo-name{font-size:16px;font-weight:800;color:#fff;letter-spacing:-.02em}
+.sb-logo-sub{font-size:10px;color:var(--sb-t);letter-spacing:.10em;text-transform:uppercase;margin-top:1px}
+.sb-nav{flex:1;overflow-y:auto;padding:14px 10px}
+.sb-section{font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.28);padding:16px 10px 5px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r-sm);cursor:pointer;transition:all .18s var(--ease);color:var(--sb-t);font-size:13.5px;font-weight:500;position:relative;margin-bottom:2px}
+.nav-item:hover{background:var(--sb-hov);color:rgba(255,255,255,.9)}
+.nav-item.active{background:var(--sb-act);color:#fff}
+.nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:60%;background:var(--sb-acc);border-radius:0 3px 3px 0}
+.nav-item.active .ni{color:var(--sb-acc)}
+.ni{font-size:15px;width:20px;text-align:center}
+.nav-badge{margin-left:auto;min-width:18px;height:18px;border-radius:99px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px;background:var(--sos-red);color:#fff}
+.nav-badge.warn{background:var(--amber)}
+.nav-badge.notif{background:var(--sos-orange)}
+.nav-badge.pulse{animation:bpulse 1.8s infinite}
+@keyframes bpulse{0%,100%{box-shadow:0 0 0 0 rgba(249,115,22,.5)}60%{box-shadow:0 0 0 6px transparent}}
+.sb-footer{padding:14px 12px;border-top:1px solid var(--sb-bdr);display:flex;align-items:center;gap:10px}
+.sb-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#2D468C,#00D4FF);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.header{height:64px;flex-shrink:0;background:var(--hdr);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 20px;box-shadow:0 2px 12px rgba(26,26,62,.15)}
+.hbtn{display:none;background:none;border:none;color:var(--hdr-t);font-size:20px;padding:6px}
+.h-title{font-size:17px;font-weight:800;color:var(--hdr-t);letter-spacing:-.01em}
+.h-sub{font-size:11.5px;color:var(--hdr-sub);margin-top:1px}
+.h-pill{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);border-radius:99px;padding:5px 12px;font-size:12px;color:rgba(255,255,255,.90)}
+[data-theme="dark"] .h-pill{background:var(--s2);border-color:var(--border);color:var(--t2)}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--emerald);animation:ldot 2s infinite}
+@keyframes ldot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.85)}}
+.sos-pulse{width:8px;height:8px;border-radius:50%;background:var(--sos-orange);animation:sp 1.4s infinite}
+@keyframes sp{0%{box-shadow:0 0 0 0 rgba(249,115,22,.5)}70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.theme-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:var(--r-sm);padding:7px 9px;color:rgba(255,255,255,.85);font-size:15px;transition:all .2s}
+.theme-btn:hover{background:rgba(255,255,255,.2)}
+[data-theme="dark"] .theme-btn{background:var(--s2);border-color:var(--border);color:var(--t2)}
+
+/* CONTENT */
+.content{flex:1;overflow-y:auto;padding:22px}
+.page{display:none;animation:fadeUp .28s var(--ease) both}
+.page.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* CARDS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:14px;margin-bottom:22px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;position:relative;overflow:hidden;transition:transform .2s var(--ease),box-shadow .2s;box-shadow:var(--shadow-sm)}
+.stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.stat-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 var(--r) var(--r)}
+.sc-sos::after{background:var(--sos-orange)} .sc-blue::after{background:var(--civic)} .sc-green::after{background:var(--emerald)} .sc-amber::after{background:var(--amber)} .sc-navy::after{background:var(--navy)}
+.stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px}
+.sc-sos .stat-icon{background:rgba(249,115,22,.12)} .sc-blue .stat-icon{background:rgba(45,70,140,.10)} .sc-green .stat-icon{background:rgba(46,204,113,.10)} .sc-amber .stat-icon{background:rgba(245,127,23,.10)} .sc-navy .stat-icon{background:rgba(26,26,62,.08)}
+.stat-val{font-size:28px;font-weight:800;line-height:1;letter-spacing:-.02em}
+.sc-sos .stat-val{color:var(--sos-orange)}
+.stat-lbl{font-size:12px;color:var(--t2);margin-top:4px;font-weight:500}
+.stat-sub{font-size:11px;color:var(--t2);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.stat-sub span{color:var(--civic);font-weight:700}
+[data-theme="dark"] .stat-sub span{color:var(--electric)}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;box-shadow:var(--shadow-sm)}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.card-title{font-size:14px;font-weight:700}
+.card-sub{font-size:11px;color:var(--t2);margin-top:2px}
+
+/* BUTTONS */
+.btn{padding:8px 16px;border-radius:var(--r-sm);border:none;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;transition:all .18s var(--ease);cursor:pointer}
+.btn-sos{background:var(--sos-orange);color:#fff;flex:1} .btn-sos:hover{filter:brightness(1.1);transform:translateY(-1px)} .btn-sos:disabled{opacity:.5;cursor:default;transform:none}
+.btn-outline{background:transparent;border:1px solid var(--border-s);color:var(--text)} .btn-outline:hover{background:var(--s2)}
+.btn-primary{background:var(--civic);color:#fff;font-weight:700} .btn-primary:hover{background:#3D5A9F;transform:translateY(-1px)}
+.btn-success{background:var(--emerald);color:#fff} .btn-success:hover{filter:brightness(.9)}
+.btn-danger{background:var(--sos-red);color:#fff} .btn-danger:hover{filter:brightness(.9)}
+.btn-amber{background:var(--amber);color:#fff}
+.btn-sm{padding:6px 12px;font-size:12px} .btn-xs{padding:4px 8px;font-size:11px}
+.btn-icon{background:none;border:1px solid var(--border);border-radius:var(--r-sm);padding:6px 8px;color:var(--t2);transition:all .15s}
+.btn-icon:hover{color:var(--text);border-color:var(--border-s);background:var(--s2)}
+.btn-icon.active{color:var(--civic);border-color:var(--civic);background:rgba(45,70,140,.08)}
+[data-theme="dark"] .btn-icon.active{color:var(--electric);border-color:var(--electric);background:rgba(0,212,255,.08)}
+
+/* TABLES */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{padding:10px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t2);background:var(--s2);border-bottom:1px solid var(--border);white-space:nowrap}
+tbody td{padding:11px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr:hover{background:var(--s2)} tbody tr:last-child td{border-bottom:none}
+.badge{display:inline-flex;align-items:center;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:99px;letter-spacing:.04em;text-transform:uppercase}
+.bv{background:rgba(46,204,113,.12);color:#1a8a47;border:1px solid rgba(46,204,113,.25)}
+.bp{background:rgba(245,127,23,.12);color:#b45309;border:1px solid rgba(245,127,23,.25)}
+.br{background:rgba(229,57,53,.12);color:#c62828;border:1px solid rgba(229,57,53,.25)}
+.bc{background:rgba(249,115,22,.12);color:#c2410c;border:1px solid rgba(249,115,22,.25)}
+[data-theme="dark"] .bv{background:rgba(46,204,113,.18);color:var(--emerald);border-color:rgba(46,204,113,.3)}
+[data-theme="dark"] .bp{background:rgba(245,127,23,.18);color:var(--amber);border-color:rgba(245,127,23,.3)}
+[data-theme="dark"] .br{background:rgba(229,57,53,.18);color:#ef5350;border-color:rgba(229,57,53,.3)}
+[data-theme="dark"] .bc{background:rgba(249,115,22,.18);color:var(--sos-orange);border-color:rgba(249,115,22,.3)}
+.sev-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}
+.pbar{height:5px;background:var(--s3);border-radius:99px;margin-top:4px;overflow:hidden}
+.pfill{height:100%;border-radius:99px;transition:width .5s}
+.pfill.g{background:var(--emerald)} .pfill.a{background:var(--amber)} .pfill.r{background:var(--sos-red)}
+.tbar{flex:1;height:5px;background:var(--s3);border-radius:99px;overflow:hidden}
+.tfill{height:100%;border-radius:99px;transition:width .6s}
+
+/* FILTERS */
+.fbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.fsel{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--r-sm);padding:8px 12px;font-size:12.5px;appearance:none;cursor:pointer;transition:border-color .15s}
+.fsel:focus{outline:none;border-color:var(--civic)}
+.fsearch{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--r-sm);padding:8px 12px;font-size:12.5px;flex:1;min-width:200px;transition:border-color .15s}
+.fsearch:focus{outline:none;border-color:var(--civic);box-shadow:0 0 0 3px rgba(45,70,140,.08)}
+[data-theme="dark"] .fsearch:focus{border-color:var(--electric);box-shadow:0 0 0 3px rgba(0,212,255,.08)}
+
+/* BULK BAR */
+.bulk-bar{display:none;align-items:center;gap:8px;background:linear-gradient(135deg,rgba(45,70,140,.07),rgba(0,212,255,.04));border:1px solid var(--border-s);border-radius:var(--r-sm);padding:8px 14px;margin-bottom:12px}
+.bulk-bar.show{display:flex}
+.bulk-cnt{font-size:12.5px;font-weight:700;color:var(--civic);margin-right:4px}
+[data-theme="dark"] .bulk-cnt{color:var(--electric)}
+
+/* CHARTS */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.chart-box{height:200px;position:relative}
+
+/* MAP */
+.map-ctrl{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.map-layout{display:grid;grid-template-columns:1fr 280px;gap:14px}
+#bhopal-map{height:520px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);position:relative}
+#indore-map{height:520px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border)}
+.map-sb{display:flex;flex-direction:column;gap:12px;max-height:560px;overflow-y:auto}
+.leg-item{display:flex;align-items:center;gap:8px;font-size:12px}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+/* Map mode tabs */
+.map-mode-bar{display:flex;gap:6px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r-sm);padding:4px;margin-bottom:12px}
+.mmode{flex:1;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600;text-align:center;cursor:pointer;border:none;background:transparent;color:var(--t2);transition:all .18s}
+.mmode.active{background:var(--civic);color:#fff;box-shadow:0 2px 8px rgba(45,70,140,.3)}
+[data-theme="dark"] .mmode.active{background:var(--electric);color:#080818}
+/* Live stat overlay on map */
+.map-stat-pill{position:absolute;top:12px;left:12px;z-index:999;display:flex;gap:6px;flex-wrap:wrap}
+.msp{background:rgba(13,31,60,.88);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);border-radius:99px;padding:5px 11px;font-size:11px;font-weight:700;color:#fff;display:flex;align-items:center;gap:5px}
+.msp-dot{width:7px;height:7px;border-radius:50%;animation:ldot 2s infinite}
+
+/* RISK */
+#risk-map{height:420px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);margin-top:16px}
+
+/* PWA INSTALL BANNER */
+#pwa-banner{
+  display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  z-index:3000;background:var(--surface);border:1px solid var(--border-s);
+  border-radius:16px;padding:14px 18px;box-shadow:0 12px 40px rgba(0,0,0,.35);
+  display:flex;align-items:center;gap:14px;min-width:320px;max-width:480px;
+  animation:slideUp .35s cubic-bezier(.4,0,.2,1);
+}
+@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+#pwa-banner.hide{animation:slideDown .3s forwards}
+@keyframes slideDown{to{opacity:0;transform:translateX(-50%) translateY(20px)}}
+.pwa-icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#1A1A3E,#2D468C);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:0 4px 12px rgba(45,70,140,.4)}
+.pwa-text .pwa-title{font-size:13px;font-weight:700}
+.pwa-text .pwa-sub{font-size:11px;color:var(--t2);margin-top:2px}
+.pwa-btns{display:flex;gap:6px;margin-left:auto;flex-shrink:0}
+
+/* OFFLINE BANNER */
+#offline-bar{
+  display:none;position:fixed;top:0;left:0;right:0;z-index:4000;
+  background:linear-gradient(90deg,#F97316,#E53935);
+  color:#fff;text-align:center;padding:8px 16px;font-size:13px;font-weight:700;
+  animation:slideDown2 .3s var(--ease);
+}
+@keyframes slideDown2{from{transform:translateY(-100%)}to{transform:translateY(0)}}
+
+/* Leaflet popup dark theme */
+[data-theme="dark"] .leaflet-popup-content-wrapper{background:#131328;color:#E8E8FF;border:1px solid rgba(0,212,255,.15);box-shadow:0 8px 32px rgba(0,0,0,.5)}
+[data-theme="dark"] .leaflet-popup-tip{background:#131328}
+[data-theme="dark"] .leaflet-control-zoom a{background:#131328;color:#E8E8FF;border-color:rgba(0,212,255,.2)}
+[data-theme="dark"] .leaflet-control-zoom a:hover{background:#1C1C38}
+.leaflet-popup-content-wrapper{border-radius:10px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px}
+.lp-title{font-weight:700;font-size:13px;margin-bottom:6px}
+.lp-row{display:flex;gap:8px;font-size:11px;color:#666;margin-top:3px;align-items:center}
+[data-theme="dark"] .lp-row{color:#8888AA}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;text-align:center;box-shadow:var(--shadow-sm)}
+.kpi-val{font-size:24px;font-weight:800;color:var(--civic);letter-spacing:-.02em}
+[data-theme="dark"] .kpi-val{color:var(--electric)}
+.kpi-lbl{font-size:11px;color:var(--t2);margin-top:4px;font-weight:500}
+
+/* SOS */
+.sos-banner{background:linear-gradient(135deg,rgba(249,115,22,.08),rgba(229,57,53,.04));border:1px solid rgba(249,115,22,.25);border-radius:var(--r);padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px}
+.sos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.sos-card{background:var(--card);border:1px solid rgba(249,115,22,.14);border-radius:var(--r);padding:16px;position:relative;overflow:hidden;box-shadow:var(--shadow-sm)}
+.sos-card.sos-active{border-color:rgba(249,115,22,.38);animation:scp 3s ease-in-out infinite}
+@keyframes scp{0%,100%{box-shadow:0 0 0 1px rgba(249,115,22,.12),0 4px 20px rgba(249,115,22,.08)}50%{box-shadow:0 0 0 2px rgba(249,115,22,.28),0 4px 24px rgba(249,115,22,.16)}}
+@keyframes siren{0%,100%{box-shadow:0 0 0 4px rgba(249,115,22,.3),0 0 0 8px rgba(249,115,22,.12)}50%{box-shadow:0 0 0 8px rgba(249,115,22,.2),0 0 0 16px rgba(249,115,22,.05)}}
+.sos-card.sos-acked{border-color:var(--border);opacity:.72}
+.sos-triage{position:absolute;top:12px;right:12px;font-size:10px;font-weight:700;letter-spacing:.08em;padding:3px 9px;border-radius:99px;text-transform:uppercase}
+.tc{background:rgba(249,115,22,.15);color:var(--sos-orange);border:1px solid rgba(249,115,22,.3)}
+.th{background:rgba(245,127,23,.15);color:var(--amber);border:1px solid rgba(245,127,23,.3)}
+.tm{background:rgba(45,70,140,.10);color:var(--civic);border:1px solid var(--border-s)}
+[data-theme="dark"] .tm{color:var(--electric)}
+.sos-user{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.sos-av{width:40px;height:40px;border-radius:50%;border:2px solid rgba(249,115,22,.4);background:linear-gradient(135deg,#F97316,#2D468C);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.sos-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-bottom:12px}
+.sos-meta label{color:var(--t2);display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+.sos-meta span{font-weight:600;font-family:var(--mono);font-size:12px}
+.bat-bar{height:4px;background:var(--s3);border-radius:99px;margin-bottom:12px}
+.bat-fill{height:100%;border-radius:99px;transition:width .5s}
+.sos-actions{display:flex;gap:8px}
+.sos-contact{display:flex;align-items:center;justify-content:space-between;background:var(--s2);border-radius:var(--r-sm);padding:6px 10px;margin-bottom:4px;font-size:12px}
+
+/* NOTIFICATIONS */
+.notif-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.notif-pill{background:rgba(249,115,22,.10);color:var(--sos-orange);border:1px solid rgba(249,115,22,.22);padding:4px 12px;border-radius:99px;font-size:12px;font-weight:700}
+.notif-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.ntab{padding:5px 14px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--t2);transition:all .15s}
+.ntab.active{background:var(--civic);color:#fff;border-color:var(--civic)}
+[data-theme="dark"] .ntab.active{background:var(--electric);color:#000}
+.notif-list{display:flex;flex-direction:column}
+.notif-item{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);animation:nin .32s var(--ease) both;transition:background .2s}
+.notif-item:last-child{border-bottom:none}
+@keyframes nin{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+.notif-item.unread{background:linear-gradient(90deg,rgba(249,115,22,.05),transparent);margin:0 -20px;padding:14px 20px;border-left:3px solid var(--sos-orange)}
+.notif-item.new{animation:nhighlight 3.5s ease-out forwards,nin .32s var(--ease) both}
+@keyframes nhighlight{0%{background:linear-gradient(90deg,rgba(249,115,22,.14),rgba(249,115,22,.04))}70%{background:linear-gradient(90deg,rgba(249,115,22,.07),transparent)}100%{background:transparent}}
+.nicon{width:38px;height:38px;border-radius:10px;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:17px}
+.nicon.sos{background:rgba(249,115,22,.12)} .nicon.incident{background:rgba(245,127,23,.12)} .nicon.alert{background:rgba(45,70,140,.10)} .nicon.system{background:rgba(46,204,113,.10)}
+[data-theme="dark"] .nicon.alert{background:rgba(0,212,255,.10)}
+.nbody{flex:1;min-width:0}
+.ntitle{font-size:13.5px;font-weight:700;color:var(--text)}
+.nmsg{font-size:12px;color:var(--t2);margin-top:2px;line-height:1.45}
+.ntime{font-size:10.5px;color:var(--t2);font-family:var(--mono);margin-top:5px}
+.nbtns{display:flex;gap:6px;margin-top:8px}
+.nudot{width:8px;height:8px;border-radius:50%;background:var(--sos-orange);flex-shrink:0;margin-top:6px}
+.n-empty{text-align:center;padding:52px 20px;color:var(--t2)}
+.n-empty .eicon{font-size:52px;margin-bottom:14px;opacity:.5}
+
+/* SETTINGS */
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.s-grp{display:flex;flex-direction:column;gap:6px}
+.s-lbl{font-size:12.5px;font-weight:600;color:var(--text)}
+.s-hint{font-size:11px;color:var(--t2)}
+.s-inp{background:var(--s2);border:1px solid var(--border);color:var(--text);border-radius:var(--r-sm);padding:8px 12px;font-size:13px;transition:border-color .15s}
+.s-inp:focus{outline:none;border-color:var(--civic)}
+.tog-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border)}
+.toggle{width:42px;height:22px;border-radius:99px;background:var(--s3);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s var(--ease);box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.toggle.on{background:var(--civic)} .toggle.on::after{transform:translateX(20px)}
+
+/* MODAL */
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-ov.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:min(520px,92vw);max-height:85vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.25);animation:min .25s var(--ease)}
+@keyframes min{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--border)}
+.modal-ttl{font-size:16px;font-weight:700}
+.modal-x{background:none;border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--t2);font-size:14px} .modal-x:hover{background:var(--s2)}
+#modal-body{padding:18px 20px;overflow-y:auto;flex:1}
+#modal-acts{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+.mf{margin-bottom:14px;display:flex;flex-direction:column;gap:6px}
+.mf label{font-size:12.5px;font-weight:600;color:var(--t2)}
+.msel,.mta{background:var(--s2);border:1px solid var(--border);color:var(--text);border-radius:var(--r-sm);padding:9px 12px;font-size:13px;width:100%}
+.msel:focus,.mta:focus{outline:none;border-color:var(--civic)} .mta{resize:vertical;min-height:90px}
+
+/* TOAST */
+#toasts{position:fixed;top:80px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{display:flex;align-items:flex-start;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;min-width:260px;max-width:340px;box-shadow:0 8px 24px rgba(0,0,0,.15);animation:tin .28s var(--ease);pointer-events:auto}
+.toast.out{animation:tout .25s var(--ease) forwards}
+@keyframes tin{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes tout{to{opacity:0;transform:translateX(20px)}}
+.toast.sos{border-left:3px solid var(--sos-orange)} .toast.success{border-left:3px solid var(--emerald)} .toast.warning{border-left:3px solid var(--amber)} .toast.error{border-left:3px solid var(--sos-red)}
+.t-icon{font-size:18px;flex-shrink:0;margin-top:1px} .t-title{font-size:13px;font-weight:700} .t-msg{font-size:11.5px;color:var(--t2);margin-top:2px}
+
+/* OVERLAY */
+.sb-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150}
+@media(max-width:860px){
+  .sidebar{position:fixed;height:100vh;transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0);box-shadow:8px 0 32px rgba(0,0,0,.4)}
+  .sb-ov.show{display:block} .hbtn{display:flex}
+  .map-layout{grid-template-columns:1fr} .charts-grid{grid-template-columns:1fr}
+  .sg{grid-template-columns:1fr} .kpi-row{grid-template-columns:1fr 1fr}
+}
+@media(max-width:540px){.content{padding:14px}.stats-grid{grid-template-columns:1fr 1fr}.sos-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<!-- PWA Install Banner -->
+<div id="pwa-banner" style="display:none">
+  <div class="pwa-icon">🏙️</div>
+  <div class="pwa-text">
+    <div class="pwa-title">Install NagarSetu</div>
+    <div class="pwa-sub">Access the command center offline & faster</div>
+  </div>
+  <div class="pwa-btns">
+    <button class="btn btn-primary btn-sm" id="pwa-install-btn">Install</button>
+    <button class="btn btn-outline btn-sm" onclick="dismissPWA()">✕</button>
+  </div>
+</div>
+
+<!-- Offline Bar -->
+<div id="offline-bar">📡 You're offline — Live data unavailable. Showing cached data.</div>
+
+<div id="toasts"></div>
+<div class="modal-ov" id="mov" onclick="closeMOv(event)">
+  <div class="modal">
+    <div class="modal-hdr"><div class="modal-ttl" id="modal-ttl">Modal</div><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div id="modal-body"></div>
+    <div id="modal-acts"></div>
+  </div>
+</div>
+<div class="sb-ov" id="sb-ov" onclick="closeSB()"></div>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-icon">🏙️</div>
+      <div><div class="sb-logo-name">NagarSetu</div><div class="sb-logo-sub">Command Center</div></div>
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-section">Overview</div>
+      <div class="nav-item active" data-page="dashboard" onclick="nav('dashboard')"><span class="ni">📊</span> Dashboard</div>
+      <div class="sb-section">Live Operations</div>
+      <div class="nav-item" data-page="sos" onclick="nav('sos')"><span class="ni">🚨</span> SOS Monitoring<span class="nav-badge" id="nb-sos">0</span></div>
+      <div class="nav-item" data-page="notifications" onclick="nav('notifications')"><span class="ni">🔔</span> Notifications<span class="nav-badge notif pulse" id="nb-notif" style="display:none">0</span></div>
+      <div class="nav-item" data-page="incidents" onclick="nav('incidents')"><span class="ni">📋</span> Incidents<span class="nav-badge warn" id="nb-inc">0</span></div>
+      <div class="nav-item" data-page="map" onclick="nav('map')"><span class="ni">🗺️</span> Live Map</div>
+      <div class="sb-section">Intelligence</div>
+      <div class="nav-item" data-page="risk" onclick="nav('risk')"><span class="ni">🧠</span> Risk Intelligence</div>
+      <div class="nav-item" data-page="analytics" onclick="nav('analytics')"><span class="ni">📈</span> Analytics</div>
+      <div class="sb-section">Management</div>
+      <div class="nav-item" data-page="wards" onclick="nav('wards')"><span class="ni">🏛️</span> Ward Performance</div>
+      <div class="nav-item" data-page="users" onclick="nav('users')"><span class="ni">👥</span> Users &amp; Officers<span class="nav-badge warn" id="nb-flag">0</span></div>
+      <div class="nav-item" data-page="settings" onclick="nav('settings')"><span class="ni">⚙️</span> Settings</div>
+    </nav>
+    <div class="sb-footer">
+      <div class="sb-avatar">SA</div>
+      <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700;color:#fff">Super Admin</div><div style="font-size:10.5px;color:var(--sb-t)">Municipal Corporation</div></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="header">
+      <button class="hbtn" onclick="toggleSB()">☰</button>
+      <div><div class="h-title" id="h-title">Dashboard</div><div class="h-sub" id="h-sub">Bhopal Municipal Corporation</div></div>
+      <div style="flex:1"></div>
+      <div class="h-pill"><span class="live-dot" id="conn-dot"></span><span id="conn-txt">Connecting…</span></div>
+      <div class="h-pill" id="sos-pill" style="display:none"><span class="sos-pulse"></span><span id="sos-pill-txt" style="color:var(--sos-orange);font-weight:700">0 SOS</span></div>
+      <div class="h-pill"><span>👤</span><span id="admin-cnt">1</span></div>
+      <button class="theme-btn" onclick="toggleTheme()">🌓</button>
+    </header>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <div class="stats-grid">
+          <div class="stat-card sc-sos"><div class="stat-icon">🚨</div><div class="stat-val" id="s-sos">0</div><div class="stat-lbl">Active SOS</div><div class="stat-sub">Total: <span id="s-sos-t">0</span></div></div>
+          <div class="stat-card sc-amber"><div class="stat-icon">⏳</div><div class="stat-val" id="s-pend">0</div><div class="stat-lbl">Pending Incidents</div><div class="stat-sub">Total: <span id="s-inc-t">0</span></div></div>
+          <div class="stat-card sc-green"><div class="stat-icon">✅</div><div class="stat-val" id="s-ver">0</div><div class="stat-lbl">Verified Today</div><div class="stat-sub">Rejected: <span id="s-rej">0</span></div></div>
+          <div class="stat-card sc-blue"><div class="stat-icon">🔔</div><div class="stat-val" id="s-alerts">0</div><div class="stat-lbl">Critical Alerts</div><div class="stat-sub">Unread: <span id="s-unread">0</span></div></div>
+          <div class="stat-card sc-amber"><div class="stat-icon">🏁</div><div class="stat-val" id="s-res">0%</div><div class="stat-lbl">Avg Resolution</div><div class="stat-sub">Across <span id="s-wards">0</span> wards</div></div>
+          <div class="stat-card sc-navy"><div class="stat-icon">⚠️</div><div class="stat-val" id="s-flag">0</div><div class="stat-lbl">Flagged Users</div><div class="stat-sub">Active: <span id="s-active-u">0</span></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 300px;gap:14px;margin-bottom:14px">
+          <div class="card">
+            <div class="card-hdr"><div><div class="card-title">🔔 Live Alerts</div><div class="card-sub">Real-time system alerts</div></div><button class="btn btn-sm btn-outline" onclick="nav('incidents')">View All</button></div>
+            <div id="dash-alerts"></div>
+          </div>
+          <div class="card">
+            <div class="card-hdr"><div class="card-title">⚡ Quick Actions</div></div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button class="btn btn-outline btn-sm" style="justify-content:flex-start" onclick="nav('sos')">🚨 SOS Monitor</button>
+              <button class="btn btn-outline btn-sm" style="justify-content:flex-start" onclick="openBroadcast()">📢 Send Area Alert</button>
+              <button class="btn btn-outline btn-sm" style="justify-content:flex-start" onclick="nav('incidents')">📋 Review Pending</button>
+              <button class="btn btn-outline btn-sm" style="justify-content:flex-start" onclick="nav('risk')">🧠 Risk Map</button>
+              <button class="btn btn-outline btn-sm" style="justify-content:flex-start" onclick="nav('notifications')">🔔 Notifications</button>
+            </div>
+            <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+              <div style="font-size:11px;color:var(--t2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">Active SOS</div>
+              <div id="dash-sos-mini"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card"><div class="card-hdr"><div><div class="card-title">📈 7-Day Trend</div><div class="card-sub">Reported vs Resolved</div></div></div><div style="height:180px"><canvas id="dash-trend"></canvas></div></div>
+      </div>
+
+      <!-- SOS -->
+      <div class="page" id="page-sos">
+        <div class="sos-banner">
+          <div style="font-size:24px">🚨</div>
+          <div><div style="font-size:22px;font-weight:800;color:var(--sos-orange)" id="sos-cnt">0</div><div style="font-size:13px;color:var(--t2)">Active SOS require immediate attention</div></div>
+          <div class="sos-pulse" style="margin-left:auto"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-icon active" id="sf-all" onclick="fSos('all',this)">All</button>
+          <button class="btn btn-sm btn-icon" id="sf-active" onclick="fSos('active',this)">🔴 Active</button>
+          <button class="btn btn-sm btn-icon" id="sf-acked" onclick="fSos('acknowledged',this)">🟡 Acknowledged</button>
+          <button class="btn btn-sm btn-icon" id="sf-resolved" onclick="fSos('resolved',this)">🟢 Resolved</button>
+          <div style="flex:1"></div>
+          <button class="btn btn-sm btn-primary" onclick="refreshSos()">↺ Refresh</button>
+        </div>
+        <div class="sos-grid" id="sos-grid"></div>
+      </div>
+
+      <!-- NOTIFICATIONS -->
+      <div class="page" id="page-notifications">
+        <div class="notif-hdr">
+          <div><h2 style="font-size:18px;font-weight:800">Real-Time Notifications</h2><p style="font-size:12.5px;color:var(--t2);margin-top:2px">Live updates via Socket.IO</p></div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span class="notif-pill" id="notif-cnt">0 unread</span>
+            <button class="btn btn-sm btn-outline" onclick="markAllRead()">✓ Mark all read</button>
+            <button class="btn btn-sm btn-outline" onclick="clearNotifs()">🗑 Clear all</button>
+          </div>
+        </div>
+        <div class="notif-tabs">
+          <button class="ntab active" onclick="fNotif('all',this)">All</button>
+          <button class="ntab" onclick="fNotif('sos',this)">🚨 SOS</button>
+          <button class="ntab" onclick="fNotif('incident',this)">📋 Incidents</button>
+          <button class="ntab" onclick="fNotif('alert',this)">⚠️ Alerts</button>
+          <button class="ntab" onclick="fNotif('system',this)">💻 System</button>
+        </div>
+        <div class="card" style="padding:0 20px">
+          <div class="notif-list" id="notif-list">
+            <div class="n-empty"><div class="eicon">🔔</div><p>No notifications yet. They'll appear here in real time.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INCIDENTS -->
+      <div class="page" id="page-incidents">
+        <div class="fbar">
+          <input class="fsearch" id="inc-q" placeholder="🔍 Search incidents…" oninput="renderInc()">
+          <select class="fsel" id="f-st" onchange="renderInc()"><option value="">All Status</option><option value="pending">Pending</option><option value="verified">Verified</option><option value="rejected">Rejected</option></select>
+          <select class="fsel" id="f-tp" onchange="renderInc()"><option value="">All Types</option><option value="HARASSMENT">Harassment</option><option value="POOR_LIGHTING">Poor Lighting</option><option value="UNSAFE_SPOT">Unsafe Spot</option><option value="SUSPICIOUS_ACTIVITY">Suspicious</option><option value="ROAD_HAZARD">Road Hazard</option><option value="FLOOD_RISK">Flood Risk</option></select>
+          <select class="fsel" id="f-wd" onchange="renderInc()"><option value="">All Wards</option><option>Ward 3</option><option>Ward 5</option><option>Ward 7</option><option>Ward 9</option><option>Ward 12</option><option>Ward 15</option></select>
+          <select class="fsel" id="f-sv" onchange="renderInc()"><option value="">Any Severity</option><option value="4">High (4+)</option><option value="5">Critical (5)</option></select>
+        </div>
+        <div class="bulk-bar" id="bulk-bar">
+          <span class="bulk-cnt" id="bulk-cnt">0 selected</span>
+          <button class="btn btn-xs btn-success" onclick="bulkAct('verify')">✅ Verify</button>
+          <button class="btn btn-xs btn-danger" onclick="bulkAct('reject')">✗ Reject</button>
+          <button class="btn btn-xs btn-outline" onclick="openBulkAssign()">👤 Assign</button>
+          <button class="btn btn-xs btn-outline" onclick="clearSel()">✕ Clear</button>
+        </div>
+        <div class="card" style="padding:0">
+          <div class="tbl-wrap">
+            <table><thead><tr><th style="width:36px"><input type="checkbox" id="sel-all" onchange="toggleAll()"></th><th>ID</th><th style="cursor:pointer" onclick="sortBy('type')">Type ↕</th><th>Description</th><th>Ward</th><th style="cursor:pointer" onclick="sortBy('severity')">Sev ↕</th><th>Status</th><th>AI Score</th><th>Time</th><th>Actions</th></tr></thead>
+            <tbody id="inc-tbody"></tbody></table>
+          </div>
+          <div style="padding:12px 16px;border-top:1px solid var(--border);font-size:12px;color:var(--t2)">Showing <span id="inc-cnt">0</span> incidents</div>
+        </div>
+      </div>
+
+      <!-- MAP -->
+      <div class="page" id="page-map">
+        <!-- Mode switcher -->
+        <div class="map-mode-bar">
+          <button class="mmode active" id="mm-incidents" onclick="setMapMode('incidents',this)">📍 Incidents</button>
+          <button class="mmode" id="mm-sos" onclick="setMapMode('sos',this)">🚨 SOS Live</button>
+          <button class="mmode" id="mm-heat" onclick="setMapMode('heat',this)">🌡️ Risk Heat</button>
+          <button class="mmode" id="mm-all" onclick="setMapMode('all',this)">🗺️ All Layers</button>
+        </div>
+        <div class="map-ctrl">
+          <button class="btn btn-sm btn-icon active" id="ml-inc" onclick="togML('incidents',this)">📍 Incidents</button>
+          <button class="btn btn-sm btn-icon active" id="ml-sos" onclick="togML('sos',this)">🚨 SOS</button>
+          <button class="btn btn-sm btn-icon" id="ml-heat" onclick="togML('heat',this)">🌡 Risk Heat</button>
+          <button class="btn btn-sm btn-icon" id="ml-ward" onclick="togML('ward',this)">🏛️ Wards</button>
+          <button class="btn btn-sm btn-outline" onclick="centerMap()">🎯 Indore</button>
+          <button class="btn btn-sm btn-outline" onclick="locateMe()">📡 Locate</button>
+          <button class="btn btn-sm btn-outline" onclick="refreshMapData()">↺ Refresh</button>
+          <div style="flex:1"></div>
+          <input id="map-search" class="fsearch" placeholder="🔍 Search ward or type…" style="max-width:200px;padding:6px 10px;font-size:12px" oninput="filterMapMarkers(this.value)">
+          <span style="font-size:11px;color:var(--t2);font-family:var(--mono)" id="map-coord-display">22.7196°N 75.8577°E</span>
+        </div>
+        <div class="map-layout">
+          <div style="position:relative">
+            <div id="indore-map"></div>
+            <!-- Live stat pills overlay -->
+            <div class="map-stat-pill" id="map-stat-overlay">
+              <div class="msp"><span class="msp-dot" style="background:var(--sos-orange)"></span><span id="mo-sos">0 SOS</span></div>
+              <div class="msp"><span class="msp-dot" style="background:var(--civic)"></span><span id="mo-inc">0 Incidents</span></div>
+              <div class="msp"><span class="msp-dot" style="background:var(--emerald)"></span><span id="mo-res">0 Resolved</span></div>
+            </div>
+          </div>
+          <div class="map-sb">
+            <div class="card">
+              <div class="card-title" style="margin-bottom:12px">🗺️ Map Legend</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div class="leg-item"><div class="leg-dot" style="background:var(--sos-orange)"></div>Critical SOS / Sev 5</div>
+                <div class="leg-item"><div class="leg-dot" style="background:var(--amber)"></div>High severity (4)</div>
+                <div class="leg-item"><div class="leg-dot" style="background:var(--civic)"></div>Moderate (3)</div>
+                <div class="leg-item"><div class="leg-dot" style="background:var(--emerald)"></div>Low (1–2)</div>
+                <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px">
+                  <div class="leg-item"><div class="leg-dot" style="background:#FF6200;opacity:.5;width:14px;height:14px;border-radius:50%"></div>Heatmap zone</div>
+                  <div class="leg-item" style="margin-top:6px"><div style="width:14px;height:14px;border:2px solid #9B59B6;border-radius:3px;flex-shrink:0"></div>Ward boundary</div>
+                </div>
+              </div>
+              <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+                <div style="font-size:11px;color:var(--t2);font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Fly to Ward</div>
+                <select class="fsel" style="width:100%;font-size:12px" onchange="flyToWard(this.value);this.value=''">
+                  <option value="">Select ward…</option>
+                  <option value="Rajwada">Rajwada</option>
+                  <option value="Vijay Nagar">Vijay Nagar</option>
+                  <option value="Palasia">Palasia</option>
+                  <option value="Sapna Sangeeta">Sapna Sangeeta</option>
+                  <option value="Scheme No. 54">Scheme No. 54</option>
+                  <option value="Bhawarkua">Bhawarkua</option>
+                  <option value="Pardeshipura">Pardeshipura</option>
+                  <option value="Lasudia">Lasudia</option>
+                </select>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-hdr" style="margin-bottom:10px">
+                <div class="card-title">📍 Recent Events</div>
+                <button class="btn btn-xs btn-outline" onclick="refreshMapData()">↺</button>
+              </div>
+              <div id="map-recent" style="font-size:12px;display:flex;flex-direction:column;gap:4px"></div>
+            </div>
+            <div class="card">
+              <div class="card-title" style="margin-bottom:10px">🏛️ Ward Summary</div>
+              <div id="map-ward-summary" style="font-size:12px;display:flex;flex-direction:column;gap:6px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RISK -->
+      <div class="page" id="page-risk">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div><h2 style="font-size:18px;font-weight:800">🧠 Risk Intelligence</h2><div style="font-size:12px;color:var(--t2);margin-top:2px" id="risk-upd">Loading…</div></div>
+          <button class="btn btn-outline" onclick="loadRisk()">↺ Refresh</button>
+        </div>
+        <div class="kpi-row">
+          <div class="kpi-card"><div class="kpi-val" id="r-tot">—</div><div class="kpi-lbl">Risk Zones</div></div>
+          <div class="kpi-card" style="border-color:rgba(249,115,22,.3)"><div class="kpi-val" style="color:var(--sos-orange)" id="r-crit">—</div><div class="kpi-lbl">Critical</div></div>
+          <div class="kpi-card" style="border-color:rgba(245,127,23,.3)"><div class="kpi-val" style="color:var(--amber)" id="r-high">—</div><div class="kpi-lbl">High Risk</div></div>
+          <div class="kpi-card"><div class="kpi-val" id="r-src">C++</div><div class="kpi-lbl">Engine</div></div>
+        </div>
+        <div id="risk-map"></div>
+      </div>
+
+      <!-- ANALYTICS -->
+      <div class="page" id="page-analytics">
+        <div class="charts-grid" style="margin-bottom:14px">
+          <div class="card"><div class="card-hdr"><div class="card-title">📈 7-Day Trend</div></div><div class="chart-box"><canvas id="trend-chart"></canvas></div></div>
+          <div class="card"><div class="card-hdr"><div class="card-title">🍕 Type Breakdown</div></div><div class="chart-box"><canvas id="type-chart"></canvas></div></div>
+        </div>
+        <div class="charts-grid">
+          <div class="card"><div class="card-hdr"><div class="card-title">⏱ Hourly (24h)</div></div><div class="chart-box"><canvas id="hourly-chart"></canvas></div></div>
+          <div class="card"><div class="card-hdr"><div class="card-title">🏛️ Ward Performance</div></div><div class="chart-box"><canvas id="ward-chart"></canvas></div></div>
+        </div>
+      </div>
+
+      <!-- WARDS -->
+      <div class="page" id="page-wards">
+        <div class="kpi-row" id="ward-kpis"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div class="card"><div class="card-hdr"><div class="card-title">🏛️ Ward Leaderboard</div><div class="card-sub">By resolution rate</div></div><div class="tbl-wrap"><table><thead><tr><th>Ward</th><th>Complaints</th><th>Resolution</th><th>SLA Breaches</th><th>Budget</th></tr></thead><tbody id="wards-tbody"></tbody></table></div></div>
+          <div class="card"><div class="card-hdr"><div class="card-title">👮 Officer Leaderboard</div></div><div class="tbl-wrap"><table><thead><tr><th>Officer</th><th>Ward</th><th>Assigned</th><th>Resolved</th><th>Avg</th><th>Status</th></tr></thead><tbody id="officers-tbody"></tbody></table></div></div>
+        </div>
+      </div>
+
+      <!-- USERS -->
+      <div class="page" id="page-users">
+        <div class="fbar">
+          <select class="fsel" id="u-st" onchange="loadUsers()"><option value="">All Users</option><option value="active">Active</option><option value="flagged">Flagged</option><option value="banned">Banned</option></select>
+          <div style="flex:1"></div><div style="font-size:12px;color:var(--t2)" id="u-cnt"></div>
+        </div>
+        <div class="card" style="padding:0"><div class="tbl-wrap"><table><thead><tr><th>User</th><th>Phone</th><th>Ward</th><th>Reports</th><th>SOS</th><th>False</th><th>Trust</th><th>Status</th><th>Actions</th></tr></thead><tbody id="users-tbody"></tbody></table></div></div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="page" id="page-settings">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="card-title" style="margin-bottom:16px">🔥 Firebase Configuration</div>
+            <div class="sg">
+              <div class="s-grp"><div class="s-lbl">Project ID</div><input class="s-inp" placeholder="nagarsetu-prod" id="s-fb-proj"><div class="s-hint">Firebase project identifier</div></div>
+              <div class="s-grp"><div class="s-lbl">Database URL</div><input class="s-inp" placeholder="https://nagarsetu-prod.firebaseio.com" id="s-fb-db"></div>
+              <div class="s-grp"><div class="s-lbl">API Key</div><input class="s-inp" type="password" placeholder="AIza…" id="s-fb-key"></div>
+              <div class="s-grp"><div class="s-lbl">FCM Server Key</div><input class="s-inp" type="password" placeholder="FCM key for push notifications" id="s-fcm"></div>
+            </div>
+            <div class="tog-row"><div><div style="font-size:13px;font-weight:600">Firebase Realtime Sync</div><div style="font-size:11px;color:var(--t2)">Listen to Firestore for live incidents</div></div><div class="toggle" id="tog-fb" onclick="togSet('tog-fb')"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="margin-bottom:16px">🐘 Supabase Configuration</div>
+            <div class="sg">
+              <div class="s-grp"><div class="s-lbl">Project URL</div><input class="s-inp" placeholder="https://xxx.supabase.co" id="s-su-url"></div>
+              <div class="s-grp"><div class="s-lbl">Anon Key</div><input class="s-inp" type="password" placeholder="eyJhbGc…" id="s-su-key"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="margin-bottom:16px">🤖 AI Verification</div>
+            <div class="sg">
+              <div class="s-grp"><div class="s-lbl">Auto-reject threshold</div><input class="s-inp" type="number" min="0" max="1" step="0.05" value="0.25" id="s-ai-rej"><div class="s-hint">Score below this → auto-rejected</div></div>
+              <div class="s-grp"><div class="s-lbl">Auto-verify threshold</div><input class="s-inp" type="number" min="0" max="1" step="0.05" value="0.85" id="s-ai-ver"><div class="s-hint">Score above this → auto-verified</div></div>
+            </div>
+            <div class="tog-row"><div><div style="font-size:13px;font-weight:600">Auto-run AI on new incidents</div><div style="font-size:11px;color:var(--t2)">Run Python AI verifier automatically</div></div><div class="toggle on" id="tog-ai" onclick="togSet('tog-ai')"></div></div>
+            <div class="tog-row"><div><div style="font-size:13px;font-weight:600">Risk Heatmap Auto-refresh</div><div style="font-size:11px;color:var(--t2)">Refresh C++ risk engine every 5 min</div></div><div class="toggle on" id="tog-risk" onclick="togSet('tog-risk')"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="margin-bottom:12px">🔌 Android Integration Reference</div>
+            <div style="background:var(--s2);border-radius:var(--r-sm);padding:14px;font-size:12px;font-family:var(--mono);color:var(--t2);line-height:1.8">
+              <div style="color:var(--civic)">// Retrofit base URL:</div>
+              <div>const BASE_URL = "http://YOUR_SERVER:3000"</div>
+              <div style="margin-top:8px;color:var(--civic)">// Socket.IO:</div>
+              <div>IO.socket("http://YOUR_SERVER:3000")</div>
+              <div style="margin-top:8px;color:var(--civic)">// Key endpoints:</div>
+              <div>POST /api/sos  ← Raksha module</div>
+              <div>POST /api/incidents  ← Report module</div>
+              <div style="margin-top:8px;color:var(--civic)">// Events Android → Admin:</div>
+              <div>android_new_report, sos_ping</div>
+              <div style="margin-top:8px;color:var(--civic)">// Events Admin → Android:</div>
+              <div>broadcast_alert, civic_broadcast</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-primary" onclick="saveSettings()">💾 Save Configuration</button>
+            <button class="btn btn-outline" onclick="testConn()">🧪 Test Connection</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ── NOTIFICATION STATE ──
+const NS = { items:[], filter:'all', nextId:1 };
+const NICONS = {sos:'🚨',incident:'📋',alert:'⚠️',system:'💻'};
+const NCLASS = {sos:'sos',incident:'incident',alert:'alert',system:'system'};
+
+function addNotif(type,title,msg,data={}) {
+  const n={id:NS.nextId++,type,title,msg,time:Date.now(),read:false,isNew:true,data};
+  NS.items.unshift(n);
+  if(NS.items.length>200) NS.items.pop();
+  updNotifBadge();
+  if(S.page==='notifications') renderNotifs();
+  return n;
+}
+function updNotifBadge(){
+  const u=NS.items.filter(n=>!n.read).length;
+  const b=document.getElementById('nb-notif');
+  const p=document.getElementById('notif-cnt');
+  if(u>0){b.textContent=u>99?'99+':u;b.style.display='flex';}else{b.style.display='none';}
+  if(p) p.textContent=u+' unread';
+}
+function markAllRead(){NS.items.forEach(n=>{n.read=true;n.isNew=false;});updNotifBadge();renderNotifs();}
+function clearNotifs(){NS.items=[];updNotifBadge();renderNotifs();}
+function fNotif(f,btn){NS.filter=f;document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');renderNotifs();}
+function renderNotifs(){
+  const el=document.getElementById('notif-list');
+  if(!el) return;
+  updNotifBadge();
+  let items=NS.filter==='all'?NS.items:NS.items.filter(n=>n.type===NS.filter);
+  if(!items.length){el.innerHTML=`<div class="n-empty"><div class="eicon">🔔</div><p>No ${NS.filter==='all'?'':NS.filter+' '}notifications.</p></div>`;return;}
+  el.innerHTML=items.map((n,i)=>{
+    const uc=n.isNew?'unread new':(!n.read?'unread':'');
+    const ds=n.isNew&&i<5?`animation-delay:${i*.05}s`:'';
+    return `<div class="notif-item ${uc}" id="ni${n.id}" style="${ds}" onclick="rdNotif(${n.id})">
+      <div class="nicon ${NCLASS[n.type]||'system'}">${NICONS[n.type]||'🔔'}</div>
+      <div class="nbody">
+        <div class="ntitle">${n.title}</div>
+        <div class="nmsg">${n.msg}</div>
+        <div class="ntime">${ago(n.time)}</div>
+        ${n.type==='sos'?`<div class="nbtns"><button class="btn btn-xs btn-sos" onclick="event.stopPropagation();nav('sos')">View SOS</button></div>`:''}
+        ${n.type==='incident'?`<div class="nbtns"><button class="btn btn-xs btn-primary" onclick="event.stopPropagation();nav('incidents')">Review</button></div>`:''}
+      </div>
+      ${!n.read?'<div class="nudot"></div>':''}
+    </div>`;
+  }).join('');
+  setTimeout(()=>{NS.items.forEach(n=>n.isNew=false);},3600);
+}
+function rdNotif(id){
+  const n=NS.items.find(x=>x.id===id);
+  if(n){n.read=true;n.isNew=false;}
+  updNotifBadge();
+  const el=document.getElementById('ni'+id);
+  if(el){el.classList.remove('unread','new');el.querySelector('.nudot')?.remove();}
+}
+
+// ── APP STATE ──
+const S={incidents:[],sos:[],alerts:[],wards:[],users:[],officers:[],stats:{},page:'dashboard',sel:new Set(),sosF:'all',ml:{incidents:true,sos:true,heat:false,ward:false},charts:{},sortC:null,sortD:1};
+
+// ── SOCKET.IO ──
+const socket=io({query:{adminId:'admin_'+Math.random().toString(36).slice(2,7)}});
+socket.on('connect',()=>{
+  document.getElementById('conn-dot').style.background='var(--emerald)';
+  document.getElementById('conn-txt').textContent='Live';
+  addNotif('system','Connected','Real-time Socket.IO sync active');
+  toast('Connected','Real-time sync active','success');
+});
+socket.on('disconnect',()=>{
+  document.getElementById('conn-dot').style.background='var(--sos-red)';
+  document.getElementById('conn-txt').textContent='Disconnected';
+  addNotif('system','Disconnected','Attempting to reconnect…');
+  toast('Disconnected','Reconnecting…','warning');
+});
+socket.on('admin_count',c=>document.getElementById('admin-cnt').textContent=c);
+socket.on('init',data=>{
+  S.incidents=data.incidents||[];S.sos=data.sosEvents||[];S.alerts=data.alerts||[];
+  S.wards=data.wardStats||[];S.users=data.users||[];S.officers=data.officers||[];S.stats=data.stats||{};
+  renderAll();
+  addNotif('system','Dashboard Loaded',`${S.incidents.length} incidents · ${S.sos.length} SOS events`);
+});
+socket.on('new_incident',inc=>{
+  S.incidents.unshift(inc);if(S.stats.incidents)S.stats.incidents.total++;
+  renderDash();renderInc();updBadges();refreshMarkers();
+  addNotif('incident',`New: ${fmtType(inc.type)}`,`${inc.ward} · Sev ${inc.severity}/5`,{id:inc.id});
+  toast('New Incident',`${fmtType(inc.type)} in ${inc.ward}`,'info');
+});
+socket.on('incident_updated',u=>{
+  const i=S.incidents.findIndex(x=>x.id===u.id);if(i!==-1)S.incidents[i]=u;
+  renderInc();refreshMarkers();
+  addNotif('incident','Incident Updated',`Status → ${u.status}`,{id:u.id});
+});
+socket.on('new_sos',sos=>{
+  S.sos.unshift(sos);updSosBanner();renderSos();refreshMarkers();
+  addNotif('sos','🚨 SOS Alert',`${sos.userName||'Unknown'} · ${sos.ward}`,{id:sos.id});
+  toast('🚨 SOS ALERT',`${sos.userName||'Unknown'} · ${sos.ward}`,'sos');
+  const el=document.querySelector('[data-page="sos"]');
+  if(el){el.style.background='rgba(249,115,22,.2)';setTimeout(()=>el.style.background='',3000);}
+});
+socket.on('sos_acknowledged',u=>{const i=S.sos.findIndex(s=>s.id===u.id);if(i!==-1)S.sos[i]=u;updSosBanner();renderSos();addNotif('sos','SOS Acknowledged',`${u.userName||'SOS'} acked`);});
+socket.on('sos_updated',u=>{const i=S.sos.findIndex(s=>s.id===u.id);if(i!==-1)S.sos[i]=u;updSosBanner();renderSos();});
+socket.on('sos_location_update',({id,lat,lng,battery,heartRate})=>{
+  const i=S.sos.findIndex(s=>s.id===id);if(i!==-1){
+    S.sos[i].lat=lat;S.sos[i].lng=lng;
+    if(battery!=null)S.sos[i].batteryLevel=battery;
+    if(heartRate!=null)S.sos[i].heartRate=heartRate;
+  }
+  refreshMarkers();if(mapS.sosM[id])mapS.sosM[id].setLatLng([lat,lng]);
+  if(S.page==='sos')renderSos();
+});
+socket.on('new_alert',a=>{S.alerts.unshift(a);renderDash();addNotif('alert',a.title||'New Alert',a.message||`${a.type} — ${a.ward}`);});
+socket.on('alert_acknowledged',u=>{const i=S.alerts.findIndex(a=>a.id===u.id);if(i!==-1)S.alerts[i]=u;renderDash();});
+socket.on('user_updated',u=>{const i=S.users.findIndex(x=>x.id===u.id);if(i!==-1)S.users[i]=u;if(S.page==='users')loadUsers();updBadges();addNotif('system','User Updated',`${u.name} → ${u.status}`);});
+
+// ── NAVIGATION ──
+const PAGE_META={dashboard:['Dashboard','Indore Municipal Corporation'],sos:['SOS Monitoring','Live Emergency Tracking'],notifications:['Notifications','Real-Time Updates via Socket.IO'],incidents:['Incident Management','Filter · Verify · Assign'],map:['Live Indore Map','Real-time Heatmap & Ward Layers'],risk:['Risk Intelligence','C++ Engine · Auto-refresh 5min'],analytics:['Analytics','Trends · Breakdown · Performance'],wards:['Ward Performance','KPI · Officer Leaderboard'],users:['Users & Officers','Trust Score · Flag · Manage'],settings:['Settings','Firebase · Supabase · AI Config']};
+
+function nav(page){
+  S.page=page;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page)?.classList.add('active');
+  document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
+  const [t,s]=PAGE_META[page]||[page,''];
+  document.getElementById('h-title').textContent=t;
+  document.getElementById('h-sub').textContent=s;
+  closeSB();
+  if(page==='map')setTimeout(()=>{initMap();refreshMarkers();renderWardSummary();},100);
+  if(page==='analytics')loadAnalytics();
+  if(page==='wards')renderWards();
+  if(page==='users')loadUsers();
+  if(page==='risk')loadRisk();
+  if(page==='sos')renderSos();
+  if(page==='incidents')renderInc();
+  if(page==='notifications'){markAllRead();renderNotifs();}
+}
+function toggleSB(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sb-ov').classList.toggle('show');}
+function closeSB(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sb-ov').classList.remove('show');}
+
+// ── RENDER ALL ──
+function renderAll(){renderDash();renderInc();renderSos();updBadges();loadAnalytics();}
+
+// ── DASHBOARD ──
+function renderDash(){
+  const s=S.stats;if(!s.incidents)return;
+  document.getElementById('s-sos').textContent=s.sos?.active||0;
+  document.getElementById('s-sos-t').textContent=s.sos?.total||0;
+  document.getElementById('s-pend').textContent=s.incidents?.pending||0;
+  document.getElementById('s-inc-t').textContent=s.incidents?.total||0;
+  document.getElementById('s-ver').textContent=s.incidents?.verified||0;
+  document.getElementById('s-rej').textContent=s.incidents?.rejected||0;
+  document.getElementById('s-alerts').textContent=s.alerts?.critical||0;
+  document.getElementById('s-unread').textContent=s.alerts?.unacknowledged||0;
+  document.getElementById('s-res').textContent=(s.wards?.avgResolution||0)+'%';
+  document.getElementById('s-wards').textContent=s.wards?.total||0;
+  document.getElementById('s-flag').textContent=s.users?.flagged||0;
+  document.getElementById('s-active-u').textContent=s.users?.active||0;
+  document.getElementById('dash-alerts').innerHTML=S.alerts.slice(0,5).map(a=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:18px">${a.severity==='CRITICAL'?'🔴':a.type==='SOS'?'🚨':'🟡'}</span>
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.title}</div><div style="font-size:11px;color:var(--t2)">${a.ward} · ${ago(a.timestamp)}</div></div>
+      ${!a.acknowledged?`<button class="btn btn-xs btn-outline" onclick="ackAlert('${a.id}')">Ack</button>`:'<span style="font-size:10px;color:var(--emerald)">✓</span>'}
+    </div>`).join('');
+  const active=S.sos.filter(s=>s.status==='active');
+  document.getElementById('dash-sos-mini').innerHTML=active.length===0
+    ?'<div style="font-size:12px;color:var(--t2)">No active SOS ✓</div>'
+    :active.slice(0,3).map(s=>`<div style="background:rgba(249,115,22,.07);border:1px solid rgba(249,115,22,.18);border-radius:var(--r-sm);padding:7px 10px;cursor:pointer;margin-bottom:6px" onclick="nav('sos')"><div style="font-size:12px;font-weight:700">${s.userName||'Unknown'}</div><div style="font-size:10px;color:var(--t2)">${s.ward} · ${ago(s.triggeredAt)}</div></div>`).join('');
+  fetch('/api/analytics/trends').then(r=>r.json()).then(d=>{
+    const ctx=document.getElementById('dash-trend')?.getContext('2d');if(!ctx)return;
+    if(S.charts.dt)S.charts.dt.destroy();
+    S.charts.dt=new Chart(ctx,{type:'line',data:{labels:d.labels,datasets:[
+      {label:'Reported',data:d.reported,borderColor:'#2D468C',backgroundColor:'rgba(45,70,140,.08)',fill:true,tension:.4,pointRadius:3},
+      {label:'Resolved',data:d.resolved,borderColor:'#2ECC71',backgroundColor:'rgba(46,204,113,.08)',fill:true,tension:.4,pointRadius:3}
+    ]},options:chDef()});
+  }).catch(()=>{});
+}
+
+// ── SOS ──
+function updSosBanner(){
+  const n=S.sos.filter(s=>s.status==='active').length;
+  document.getElementById('sos-cnt').textContent=n;
+  document.getElementById('nb-sos').textContent=n;
+  const p=document.getElementById('sos-pill');
+  if(n>0){p.style.display='flex';document.getElementById('sos-pill-txt').textContent=n+' SOS Active';}else p.style.display='none';
+}
+function fSos(f,btn){S.sosF=f;document.querySelectorAll('[id^="sf-"]').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderSos();}
+function renderSos(){
+  updSosBanner();
+  let ev=S.sosF==='all'?S.sos:S.sos.filter(s=>s.status===S.sosF);
+  const g=document.getElementById('sos-grid');if(!g)return;
+  if(!ev.length){g.innerHTML='<div style="text-align:center;padding:40px;color:var(--t2);font-size:13px">No SOS matching filter</div>';return;}
+  g.innerHTML=ev.map(s=>{
+    const bc=s.batteryLevel>50?'var(--emerald)':s.batteryLevel>20?'var(--amber)':'var(--sos-red)';
+    const triage=s.triageLevel||'moderate';
+    const tc=triage==='critical'?'tc':triage==='high'?'th':'tm';
+    return `<div class="sos-card ${s.status==='active'?'sos-active':s.status==='acknowledged'?'sos-acked':''}">
+      <div class="sos-triage ${tc}">${triage}</div>
+      <div class="sos-user"><div class="sos-av">👤</div><div><div style="font-weight:700;font-size:14px">${s.userName||'Unknown'}</div><div style="font-size:12px;color:var(--t2)">${s.ward}</div></div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:11px;color:var(--t2);font-family:var(--mono)">⏱ ${ago(s.triggeredAt)} · ${new Date(s.triggeredAt).toLocaleTimeString('en-IN')}</div>
+        ${s.heartRate > 0 ? `<div style="display:flex;align-items:center;gap:4px;background:rgba(229,57,53,0.1);padding:2px 8px;border-radius:99px;border:1px solid rgba(229,57,53,0.2)">
+          <span style="font-size:10px;animation:ldot 1s infinite">❤️</span>
+          <span style="font-size:11px;font-weight:800;color:var(--sos-red);font-family:var(--mono)">${s.heartRate} BPM</span>
+        </div>` : ''}
+      </div>
+      <div style="font-size:12px;color:var(--t2);background:var(--s2);padding:6px 10px;border-radius:var(--r-sm);margin-bottom:12px">📍 ${s.address||'Location being tracked…'}</div>
+      <div class="sos-meta">
+        <div><label>Lat</label><span>${s.lat?.toFixed(4)||'—'}</span></div>
+        <div><label>Lng</label><span>${s.lng?.toFixed(4)||'—'}</span></div>
+        <div><label>Battery</label><span style="color:${bc}">${s.batteryLevel||0}%</span></div>
+        <div><label>Status</label><span>${s.status}</span></div>
+      </div>
+      <div class="bat-bar"><div class="bat-fill" style="width:${s.batteryLevel||0}%;background:${bc}"></div></div>
+      ${s.emergencyContacts?.length?`<div style="margin-bottom:12px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--t2);margin-bottom:6px">Emergency Contacts</div>${s.emergencyContacts.map(c=>`<div class="sos-contact"><span>${c.name} · ${c.phone}</span>${c.notified?'<span style="font-size:10px;color:var(--emerald)">✓ Notified</span>':''}</div>`).join('')}</div>`:''}
+      <div class="sos-actions">
+        <button class="btn btn-sos" onclick="ackSos('${s.id}')" ${s.status!=='active'?'disabled':''}>
+          ${s.status==='active'?'✓ Acknowledge':s.status==='acknowledged'?'✓ Acknowledged':'✓ Resolved'}
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="viewOnMap(${s.lat||23.2599},${s.lng||77.4126})">📍 Map</button>
+        ${s.status==='acknowledged'?`<button class="btn btn-success btn-sm" onclick="resSos('${s.id}')">✓ Resolve</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function ackSos(id){fetch(`/api/sos/${id}/acknowledge`,{method:'PATCH'}).then(r=>r.json()).then(u=>{const i=S.sos.findIndex(s=>s.id===id);if(i!==-1)S.sos[i]=u;updSosBanner();renderSos();});}
+function resSos(id){fetch(`/api/sos/${id}/resolve`,{method:'PATCH'}).then(r=>r.json()).then(u=>{const i=S.sos.findIndex(s=>s.id===id);if(i!==-1)S.sos[i]=u;updSosBanner();renderSos();});}
+function refreshSos(){fetch('/api/sos').then(r=>r.json()).then(d=>{S.sos=d;renderSos();});}
+
+// ── INCIDENTS ──
+function updBadges(){
+  document.getElementById('nb-inc').textContent=S.incidents.filter(i=>i.status==='pending').length;
+  document.getElementById('nb-flag').textContent=S.users.filter(u=>u.status==='flagged').length;
+}
+function renderInc(){
+  let list=[...S.incidents];
+  const q=document.getElementById('inc-q')?.value.toLowerCase()||'';
+  const st=document.getElementById('f-st')?.value||'';
+  const tp=document.getElementById('f-tp')?.value||'';
+  const wd=document.getElementById('f-wd')?.value||'';
+  const sv=parseInt(document.getElementById('f-sv')?.value||'0');
+  if(q)list=list.filter(i=>(i.description||'').toLowerCase().includes(q)||(i.ward||'').toLowerCase().includes(q));
+  if(st)list=list.filter(i=>i.status===st);
+  if(tp)list=list.filter(i=>i.type===tp);
+  if(wd)list=list.filter(i=>i.ward===wd);
+  if(sv)list=list.filter(i=>i.severity>=sv);
+  if(S.sortC)list.sort((a,b)=>{const av=a[S.sortC]||'',bv=b[S.sortC]||'';return av<bv?-S.sortD:av>bv?S.sortD:0;});
+  document.getElementById('inc-cnt').textContent=list.length;
+  const sc=['','#2ECC71','#A3D977','#F57F17','#FF9800','#E53935'];
+  document.getElementById('inc-tbody').innerHTML=list.map(i=>{
+    const stCls=i.status==='verified'?'bv':i.status==='pending'?'bp':'br';
+    const ai=Math.round((i.aiScore||0)*100);
+    return `<tr>
+      <td><input type="checkbox" ${S.sel.has(i.id)?'checked':''} onchange="togSel('${i.id}',this.checked)"></td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--t2)">${i.id?.slice(-6)||'—'}</td>
+      <td style="font-weight:600">${fmtType(i.type)}</td>
+      <td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">${i.description||'—'}</td>
+      <td style="font-size:12px">${i.ward}</td>
+      <td><span style="display:inline-flex;align-items:center;font-weight:700;font-family:var(--mono)"><span class="sev-dot" style="background:${sc[i.severity]||'#999'}"></span>${i.severity}/5</span></td>
+      <td><span class="badge ${stCls}">${i.status}</span></td>
+      <td><div style="display:flex;align-items:center;gap:6px">
+        <div style="flex:1;height:5px;background:var(--s3);border-radius:99px;min-width:50px"><div style="height:100%;width:${ai}%;background:${ai>70?'var(--emerald)':ai>40?'var(--amber)':'var(--sos-red)'};border-radius:99px"></div></div>
+        <span style="font-size:11px;font-family:var(--mono);color:var(--t2)">${ai}%</span>
+      </div></td>
+      <td style="font-size:11px;white-space:nowrap">${ago(i.reportedAt)}</td>
+      <td><div style="display:flex;gap:4px">
+        ${i.status==='pending'?`<button class="btn btn-xs btn-success" onclick="updInc('${i.id}','verify')">✓</button><button class="btn btn-xs btn-danger" onclick="updInc('${i.id}','reject')">✗</button>`:''}
+        ${i.lat?`<button class="btn btn-xs btn-outline" onclick="viewOnMap(${i.lat},${i.lng})">📍</button>`:''}
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+function sortBy(c){S.sortD=S.sortC===c?-S.sortD:1;S.sortC=c;renderInc();}
+function toggleAll(){const ck=document.getElementById('sel-all').checked;S.sel.clear();if(ck)S.incidents.forEach(i=>S.sel.add(i.id));document.querySelectorAll('#inc-tbody input[type=checkbox]').forEach(cb=>cb.checked=ck);updBulk();}
+function togSel(id,ck){ck?S.sel.add(id):S.sel.delete(id);updBulk();}
+function updBulk(){const n=S.sel.size;document.getElementById('bulk-bar').classList.toggle('show',n>0);document.getElementById('bulk-cnt').textContent=n+' selected';}
+function clearSel(){S.sel.clear();document.querySelectorAll('#inc-tbody input[type=checkbox]').forEach(cb=>cb.checked=false);const sa=document.getElementById('sel-all');if(sa)sa.checked=false;updBulk();}
+function bulkAct(action){
+  const ids=[...S.sel];
+  Promise.all(ids.map(id=>fetch(`/api/incidents/${id}/${action}`,{method:'PATCH'}).then(r=>r.json())))
+    .then(ups=>{ups.forEach(u=>{const i=S.incidents.findIndex(x=>x.id===u.id);if(i!==-1)S.incidents[i]=u;});clearSel();renderInc();updBadges();toast('Bulk Done',`${ups.length} incidents updated`,'success');});
+}
+function openBulkAssign(){openModal('👤 Assign Officer',`<div class="mf"><label>Select Officer</label><select class="msel" id="ao">${S.officers.map(o=>`<option value="${o.id}">${o.name} — ${o.ward}</option>`).join('')}</select></div>`,[{label:'✓ Assign',cls:'btn-primary',fn:()=>{closeModal();clearSel();toast('Assigned','Incidents assigned','success');}},{label:'Cancel',cls:'btn-outline',fn:closeModal}]);}
+function updInc(id,action){fetch(`/api/incidents/${id}/${action}`,{method:'PATCH'}).then(r=>r.json()).then(u=>{const i=S.incidents.findIndex(x=>x.id===id);if(i!==-1)S.incidents[i]=u;renderInc();updBadges();});}
+function sevColor(sv){return sv>=5?'#F97316':sv>=4?'#F57F17':sv>=3?'#2D468C':'#2ECC71';}
+
+// ── MAP (Indore-centred, multi-mode) ──
+// Indore city centre: 22.7196°N, 75.8577°E
+const INDORE = [22.7196, 75.8577];
+const INDORE_ZOOM = 13;
+
+// Indore ward approximate centres for demo overlays
+const INDORE_WARDS = [
+  {name:'Rajwada',lat:22.7196,lng:75.8577},
+  {name:'Vijay Nagar',lat:22.7447,lng:75.8854},
+  {name:'Palasia',lat:22.7319,lng:75.8697},
+  {name:'Sapna Sangeeta',lat:22.7136,lng:75.8802},
+  {name:'Scheme No. 54',lat:22.7528,lng:75.9011},
+  {name:'Bhawarkua',lat:22.6983,lng:75.8512},
+  {name:'Pardeshipura',lat:22.7387,lng:75.8321},
+  {name:'Lasudia',lat:22.7663,lng:75.9102},
+];
+
+const mapS={map:null,markers:[],sosM:{},hl:null,wardLayers:[],tileLayer:null,mode:'incidents'};
+
+function getTiles(dark){
+  return dark
+    ?'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+    :'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+}
+
+function initMap(){
+  if(mapS.map){mapS.map.invalidateSize();updMapStatPills();return;}
+  const dk=document.documentElement.getAttribute('data-theme')==='dark';
+  mapS.map=L.map('indore-map',{center:INDORE,zoom:INDORE_ZOOM,zoomControl:true});
+  mapS.tileLayer=L.tileLayer(getTiles(dk),{attribution:'© CartoDB',maxZoom:19}).addTo(mapS.map);
+
+  // Coordinate display on mousemove
+  mapS.map.on('mousemove',e=>{
+    const el=document.getElementById('map-coord-display');
+    if(el) el.textContent=`${e.latlng.lat.toFixed(4)}°N ${e.latlng.lng.toFixed(4)}°E`;
+  });
+
+  refreshMarkers();
+  renderWardSummary();
+}
+
+function setMapMode(mode, btn){
+  mapS.mode=mode;
+  document.querySelectorAll('.mmode').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+
+  // Sync toggle buttons to mode
+  const layerMap={incidents:['ml-inc'],sos:['ml-sos'],heat:['ml-heat'],all:['ml-inc','ml-sos','ml-heat','ml-ward']};
+  document.querySelectorAll('[id^="ml-"]').forEach(b=>b.classList.remove('active'));
+  (layerMap[mode]||[]).forEach(id=>document.getElementById(id)?.classList.add('active'));
+
+  // Update ml state
+  S.ml.incidents = (mode==='incidents'||mode==='all');
+  S.ml.sos       = (mode==='sos'||mode==='all');
+  S.ml.heat      = (mode==='heat'||mode==='all');
+  S.ml.ward      = (mode==='all');
+
+  refreshMarkers();
+  if(S.ml.heat) loadHeatmap(); else clearHeatmap();
+  if(S.ml.ward) renderWardOverlays(); else clearWardOverlays();
+}
+
+function togML(l,btn){
+  S.ml[l]=!S.ml[l];
+  btn.classList.toggle('active',S.ml[l]);
+  if(l==='heat'){S.ml.heat?loadHeatmap():clearHeatmap();}
+  else if(l==='ward'){S.ml.ward?renderWardOverlays():clearWardOverlays();}
+  else refreshMarkers();
+}
+
+function buildDivIcon(emoji, color, size=28){
+  return L.divIcon({
+    html:`<div style="
+      width:${size}px;height:${size}px;border-radius:50%;
+      background:${color};border:2px solid rgba(255,255,255,.8);
+      display:flex;align-items:center;justify-content:center;
+      font-size:${Math.round(size*.5)}px;
+      box-shadow:0 2px 8px rgba(0,0,0,.35);
+    ">${emoji}</div>`,
+    className:'',iconSize:[size,size],iconAnchor:[size/2,size/2]
+  });
+}
+
+function buildSosIcon(){
+  return L.divIcon({
+    html:`<div style="
+      width:36px;height:36px;border-radius:50%;
+      background:#F97316;border:2.5px solid #fff;
+      display:flex;align-items:center;justify-content:center;
+      font-size:16px;box-shadow:0 0 0 6px rgba(249,115,22,.25);
+      animation:siren 1.2s ease-in-out infinite;
+    ">🚨</div>`,
+    className:'',iconSize:[36,36],iconAnchor:[18,18]
+  });
+}
+
+function refreshMarkers(){
+  if(!mapS.map) return;
+  mapS.markers.forEach(m=>mapS.map.removeLayer(m));
+  mapS.markers=[];
+  mapS.sosM={};
+
+  if(S.ml.incidents){
+    S.incidents.filter(i=>i.status!=='rejected'&&i.lat).forEach(inc=>{
+      const color=sevColor(inc.severity);
+      const emoji=inc.type==='ROAD_HAZARD'?'🚧':inc.type==='HARASSMENT'?'⚠️':inc.type==='FLOOD_RISK'?'🌊':inc.type==='POOR_LIGHTING'?'💡':'📍';
+      const m=L.marker([inc.lat,inc.lng],{icon:buildDivIcon(emoji,color,26)})
+        .addTo(mapS.map)
+        .bindPopup(`
+          <div class="lp-title">${fmtType(inc.type)}</div>
+          <div class="lp-row">🏛️ ${inc.ward}</div>
+          <div class="lp-row">⚡ Severity ${inc.severity}/5 &nbsp;·&nbsp; <span class="badge ${inc.status==='verified'?'bv':inc.status==='pending'?'bp':'br'}" style="font-size:10px">${inc.status}</span></div>
+          <div class="lp-row" style="margin-top:4px;font-size:11px;color:var(--t2)">${inc.description||''}</div>
+          <div class="lp-row" style="margin-top:6px">⏱ ${ago(inc.reportedAt)}</div>
+        `);
+      mapS.markers.push(m);
+    });
+  }
+
+  if(S.ml.sos){
+    S.sos.filter(s=>s.status==='active'&&s.lat).forEach(sos=>{
+      const m=L.marker([sos.lat,sos.lng],{icon:buildSosIcon(),zIndexOffset:1000})
+        .addTo(mapS.map)
+        .bindPopup(`
+          <div class="lp-title" style="color:#F97316">🚨 SOS — ${sos.userName||'Unknown'}</div>
+          <div class="lp-row">🏛️ ${sos.ward}</div>
+          <div class="lp-row">🔋 ${sos.batteryLevel||0}% battery &nbsp; ${sos.heartRate > 0 ? `· ❤️ ${sos.heartRate} BPM` : ''}</div>
+          <div class="lp-row">📍 ${sos.address||'Tracking…'}</div>
+          <div class="lp-row">⏱ ${ago(sos.triggeredAt)}</div>
+        `);
+      mapS.markers.push(m);
+      mapS.sosM[sos.id]=m;
+    });
+  }
+
+  updMapStatPills();
+  renderRecentSidebar();
+}
+
+function updMapStatPills(){
+  const activeS=S.sos.filter(s=>s.status==='active').length;
+  const activeI=S.incidents.filter(i=>i.status!=='rejected').length;
+  const resolvedI=S.incidents.filter(i=>i.status==='verified').length;
+  const s1=document.getElementById('mo-sos');const s2=document.getElementById('mo-inc');const s3=document.getElementById('mo-res');
+  if(s1)s1.textContent=activeS+' SOS';
+  if(s2)s2.textContent=activeI+' Incidents';
+  if(s3)s3.textContent=resolvedI+' Resolved';
+}
+
+function loadHeatmap(){
+  if(!mapS.map)return;
+  fetch('/api/risk/heatmap').then(r=>r.json()).then(d=>{
+    clearHeatmap();
+    // Try leaflet.heat plugin first
+    if(typeof L.heatLayer==='function'){
+      const pts=(d.zones||[]).map(z=>[z.lat,z.lng,z.riskScore||.5]);
+      mapS.hl=L.heatLayer(pts,{radius:40,blur:30,maxZoom:16,
+        gradient:{0.2:'#2ECC71',0.4:'#F57F17',0.7:'#F97316',1.0:'#E53935'}
+      }).addTo(mapS.map);
+    } else {
+      // Fallback: coloured circles
+      (d.zones||[]).forEach(z=>{
+        const c=z.level==='CRITICAL'?'#F97316':z.level==='HIGH'?'#F57F17':z.level==='MODERATE'?'#2D468C':'#2ECC71';
+        const m=L.circle([z.lat,z.lng],{radius:320,color:'transparent',fillColor:c,fillOpacity:z.riskScore*.5,weight:0})
+          .addTo(mapS.map).bindTooltip(`Risk: ${Math.round((z.riskScore||0)*100)}% (${z.level})`);
+        mapS.markers.push(m);
+      });
+    }
+  }).catch(()=>{
+    // No API — generate synthetic heatmap from incidents
+    if(typeof L.heatLayer==='function'&&S.incidents.length){
+      const pts=S.incidents.filter(i=>i.lat).map(i=>[i.lat,i.lng,i.severity/5]);
+      mapS.hl=L.heatLayer(pts,{radius:35,blur:25,maxZoom:16,
+        gradient:{0.2:'#2ECC71',0.5:'#F57F17',1.0:'#E53935'}
+      }).addTo(mapS.map);
+    }
+  });
+}
+
+function clearHeatmap(){
+  if(mapS.hl){mapS.map.removeLayer(mapS.hl);mapS.hl=null;}
+}
+
+function renderWardOverlays(){
+  clearWardOverlays();
+  INDORE_WARDS.forEach(w=>{
+    const wInc=S.incidents.filter(i=>i.ward===w.name).length;
+    const color=wInc>5?'#E53935':wInc>2?'#F57F17':'#2D468C';
+    const m=L.circle([w.lat,w.lng],{
+      radius:600,color,fillColor:color,fillOpacity:.13,weight:1.5,dashArray:'6 4'
+    }).addTo(mapS.map).bindTooltip(`${w.name}: ${wInc} incidents`);
+    mapS.wardLayers.push(m);
+  });
+}
+
+function clearWardOverlays(){
+  mapS.wardLayers.forEach(l=>mapS.map.removeLayer(l));
+  mapS.wardLayers=[];
+}
+
+function renderRecentSidebar(){
+  const rl=document.getElementById('map-recent');
+  if(!rl)return;
+  const items=[
+    ...S.incidents.filter(i=>i.lat).slice(0,6).map(i=>({
+      emoji:i.type==='ROAD_HAZARD'?'🚧':i.type==='FLOOD_RISK'?'🌊':'📍',
+      label:fmtType(i.type), sub:i.ward, color:sevColor(i.severity),
+      time:i.reportedAt, lat:i.lat, lng:i.lng
+    })),
+    ...S.sos.filter(s=>s.lat).slice(0,3).map(s=>({
+      emoji:'🚨', label:s.userName||'Unknown', sub:s.ward,
+      color:'#F97316', time:s.triggeredAt, lat:s.lat, lng:s.lng
+    }))
+  ].sort((a,b)=>b.time-a.time).slice(0,8);
+
+  rl.innerHTML=items.length?items.map(i=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer"
+      onclick="mapS.map&&mapS.map.setView([${i.lat},${i.lng}],16)">
+      <span style="width:24px;height:24px;border-radius:50%;background:${i.color}22;border:1.5px solid ${i.color};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">${i.emoji}</span>
+      <div style="min-width:0">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${i.label}</div>
+        <div style="color:var(--t2);font-size:10px">${i.sub} · ${ago(i.time)}</div>
+      </div>
+    </div>`).join('')
+    :'<div style="color:var(--t2);font-size:12px">No events with location data</div>';
+}
+
+function renderWardSummary(){
+  const el=document.getElementById('map-ward-summary');
+  if(!el)return;
+  const maxInc=Math.max(1,...INDORE_WARDS.map(w=>S.incidents.filter(i=>i.ward===w.name).length));
+  el.innerHTML=INDORE_WARDS.map(w=>{
+    const cnt=S.incidents.filter(i=>i.ward===w.name).length;
+    const sos=S.sos.filter(s=>s.ward===w.name&&s.status==='active').length;
+    const col=cnt>5?'var(--sos-red)':cnt>2?'var(--amber)':'var(--emerald)';
+    const pct=Math.round((cnt/maxInc)*100);
+    return `<div style="padding:5px 0;border-bottom:1px solid var(--border);cursor:pointer"
+      onclick="mapS.map&&mapS.map.setView([${w.lat},${w.lng}],15)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+        <span style="font-size:12px;font-weight:600">${w.name}</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          ${sos>0?`<span style="font-size:10px;background:rgba(249,115,22,.15);color:var(--sos-orange);border-radius:99px;padding:1px 6px;font-weight:700">🚨${sos}</span>`:''}
+          <span style="font-size:11px;font-weight:700;color:${col}">${cnt}</span>
+        </div>
+      </div>
+      <div style="height:3px;background:var(--s3);border-radius:99px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${col};border-radius:99px;transition:width .5s"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function centerMap(){if(mapS.map)mapS.map.setView(INDORE,INDORE_ZOOM);}
+function refreshMapData(){
+  refreshMarkers();
+  if(S.ml.heat)loadHeatmap();
+  if(S.ml.ward)renderWardOverlays();
+  renderWardSummary();
+  toast('Map Refreshed','Indore live data updated','success');
+}
+function filterMapMarkers(q){
+  const term=q.toLowerCase().trim();
+  if(!term){refreshMarkers();return;}
+  // Check if it matches a known ward — fly to it
+  const ward=INDORE_WARDS.find(w=>w.name.toLowerCase().includes(term));
+  if(ward&&mapS.map){mapS.map.setView([ward.lat,ward.lng],15);renderWardSummary();return;}
+  // Otherwise filter markers by type
+  if(!mapS.map)return;
+  mapS.markers.forEach(m=>mapS.map.removeLayer(m));
+  mapS.markers=[];
+  S.incidents.filter(i=>i.status!=='rejected'&&i.lat&&(fmtType(i.type).toLowerCase().includes(term)||i.ward.toLowerCase().includes(term))).forEach(inc=>{
+    const color=sevColor(inc.severity);
+    const emoji=inc.type==='ROAD_HAZARD'?'🚧':inc.type==='HARASSMENT'?'⚠️':inc.type==='FLOOD_RISK'?'🌊':inc.type==='POOR_LIGHTING'?'💡':'📍';
+    const m=L.marker([inc.lat,inc.lng],{icon:buildDivIcon(emoji,color,26)}).addTo(mapS.map)
+      .bindPopup(`<div class="lp-title">${fmtType(inc.type)}</div><div class="lp-row">🏛️ ${inc.ward}</div><div class="lp-row">⚡ Sev ${inc.severity}/5</div>`);
+    mapS.markers.push(m);
+  });
+  document.getElementById('map-coord-display').textContent=`${mapS.markers.length} match${mapS.markers.length!==1?'es':''}`;
+}
+function locateMe(){
+  if(!navigator.geolocation){toast('Location Unavailable','Geolocation not supported','warning');return;}
+  navigator.geolocation.getCurrentPosition(pos=>{
+    if(!mapS.map)return;
+    const {latitude:lat,longitude:lng}=pos.coords;
+    mapS.map.setView([lat,lng],15);
+    const youMarker=L.marker([lat,lng],{icon:buildDivIcon('🟢','#2ECC71',28)})
+      .addTo(mapS.map).bindPopup('<div class="lp-title">📡 Your Location</div>').openPopup();
+    setTimeout(()=>mapS.map.removeLayer(youMarker),10000);
+    toast('Location Found',`${lat.toFixed(4)}°N ${lng.toFixed(4)}°E`,'success');
+  },()=>toast('Location Denied','Enable location permission','warning'));
+}
+function flyToWard(name){
+  if(!name||!mapS.map)return;
+  const w=INDORE_WARDS.find(x=>x.name===name);
+  if(w) mapS.map.flyTo([w.lat,w.lng],15,{duration:1.2});
+}
+function viewOnMap(lat,lng){
+  nav('map');
+  setTimeout(()=>{if(mapS.map)mapS.map.setView([lat,lng],16);},200);
+}
+
+// Re-sync tile layer on theme toggle
+function syncMapTiles(){
+  if(!mapS.map||!mapS.tileLayer)return;
+  const dk=document.documentElement.getAttribute('data-theme')==='dark';
+  mapS.map.removeLayer(mapS.tileLayer);
+  mapS.tileLayer=L.tileLayer(getTiles(dk),{attribution:'© CartoDB',maxZoom:19}).addTo(mapS.map);
+  mapS.map.eachLayer(l=>{if(l!==mapS.tileLayer)l.bringToFront?.();});
+}
+
+// ── ANALYTICS ──
+function loadAnalytics(){
+  if(S.page!=='analytics'&&S.page!=='dashboard')return;
+  const CC=['#2D468C','#F97316','#2ECC71','#F57F17','#E53935','#3949AB'];
+  fetch('/api/analytics/trends').then(r=>r.json()).then(d=>{mkChart('trend-chart','line',{labels:d.labels,datasets:[{label:'Reported',data:d.reported,borderColor:'#2D468C',backgroundColor:'rgba(45,70,140,.10)',fill:true,tension:.4},{label:'Resolved',data:d.resolved,borderColor:'#2ECC71',backgroundColor:'rgba(46,204,113,.10)',fill:true,tension:.4}]});}).catch(()=>{});
+  fetch('/api/analytics/types').then(r=>r.json()).then(d=>{mkChart('type-chart','doughnut',{labels:d.labels.map(fmtType),datasets:[{data:d.values,backgroundColor:CC,borderColor:'var(--surface)',borderWidth:2}]},{plugins:{legend:{position:'right',labels:{color:'var(--ct)',font:{size:11}}}}});}).catch(()=>{});
+  fetch('/api/analytics/hourly').then(r=>r.json()).then(d=>{mkChart('hourly-chart','bar',{labels:d.labels,datasets:[{label:'Incidents',data:d.counts,backgroundColor:'rgba(45,70,140,.5)',borderColor:'#2D468C',borderWidth:1}]});}).catch(()=>{});
+  fetch('/api/analytics/wards').then(r=>r.json()).then(d=>{mkChart('ward-chart','bar',{labels:d.map(w=>w.name),datasets:[{label:'Resolution %',data:d.map(w=>w.resolutionRate),backgroundColor:'rgba(46,204,113,.5)',borderColor:'#2ECC71',borderWidth:1}]},{scales:{y:{min:0,max:100,ticks:{color:'var(--ct)',callback:v=>v+'%'}}}});}).catch(()=>{});
+}
+function mkChart(id,type,data,extra={}){
+  const ctx=document.getElementById(id)?.getContext('2d');if(!ctx)return;
+  if(S.charts[id])S.charts[id].destroy();
+  S.charts[id]=new Chart(ctx,{type,data,options:{...chDef(),...extra}});
+}
+function chDef(){
+  const dk=document.documentElement.getAttribute('data-theme')==='dark';
+  const tick=dk?'#8888AA':'#8A96B0';const grid=dk?'rgba(255,255,255,.04)':'rgba(45,70,140,.05)';
+  return{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tick,font:{size:11}}}},scales:{x:{ticks:{color:tick,font:{size:10}},grid:{color:grid}},y:{ticks:{color:tick,font:{size:10}},grid:{color:grid}}}};
+}
+
+// ── WARDS ──
+function renderWards(){
+  const w=S.wards;if(!w.length)return;
+  const t=w.reduce((s,x)=>({c:s.c+x.complaintCount,r:s.r+x.resolvedCount,sl:s.sl+x.slaBreaches}),{c:0,r:0,sl:0});
+  document.getElementById('ward-kpis').innerHTML=`<div class="kpi-card"><div class="kpi-val">${t.c}</div><div class="kpi-lbl">Total Incidents</div></div><div class="kpi-card"><div class="kpi-val" style="color:var(--emerald)">${t.r}</div><div class="kpi-lbl">Resolved</div></div><div class="kpi-card"><div class="kpi-val" style="color:var(--sos-orange)">${t.sl}</div><div class="kpi-lbl">SLA Breaches</div></div><div class="kpi-card"><div class="kpi-val">${Math.round(t.r/t.c*100)||0}%</div><div class="kpi-lbl">Avg Resolution</div></div>`;
+  const sorted=[...w].sort((a,b)=>(b.resolvedCount/b.complaintCount)-(a.resolvedCount/a.complaintCount));
+  document.getElementById('wards-tbody').innerHTML=sorted.map(x=>{
+    const rt=Math.round(x.resolvedCount/x.complaintCount*100);const bp=Math.round(x.budgetSpent/x.budgetSanctioned*100);
+    return `<tr><td>${x.wardName}<div style="font-size:11px;color:var(--t2)">${x.authorityName}</div></td><td>${x.complaintCount}</td><td><div>${rt}%</div><div class="pbar"><div class="pfill ${rt>=80?'g':rt>=60?'a':'r'}" style="width:${rt}%"></div></div></td><td><span class="badge ${x.slaBreaches>5?'bc':x.slaBreaches>2?'bp':'bv'}">${x.slaBreaches}</span></td><td><div>${bp}%</div><div class="pbar"><div class="pfill ${bp>90?'r':bp>70?'a':'g'}" style="width:${bp}%"></div></div></td></tr>`;
+  }).join('');
+  document.getElementById('officers-tbody').innerHTML=S.officers.map(o=>`<tr><td><div style="font-weight:600">${o.name}</div><div style="font-size:11px;color:var(--t2)">${o.badge}</div></td><td>${o.ward}</td><td>${o.assignedCount}</td><td>${o.resolvedCount}</td><td style="font-family:var(--mono);font-size:12px">${o.avgResponseMin}m</td><td><span class="badge ${o.status==='on-duty'?'bv':o.status==='busy'?'bp':'br'}">${o.status}</span></td></tr>`).join('');
+}
+
+// ── USERS ──
+function loadUsers(){
+  const st=document.getElementById('u-st')?.value||'';
+  let list=st?S.users.filter(u=>u.status===st):[...S.users];
+  document.getElementById('u-cnt').textContent=list.length+' users';
+  document.getElementById('users-tbody').innerHTML=list.map(u=>{
+    const tc=u.trustScore>=80?'var(--emerald)':u.trustScore>=50?'var(--amber)':'var(--sos-red)';
+    const sc=u.status==='active'?'bv':u.status==='flagged'?'bp':'br';
+    return `<tr><td><div style="font-weight:600">${u.name}</div><div style="font-size:11px;color:var(--t2)">ID: ${u.id}</div></td><td style="font-size:12px;font-family:var(--mono)">${u.phone}</td><td style="font-size:12px">${u.ward}</td><td>${u.reportCount}</td><td>${u.sosCount}</td><td><span style="color:${u.falseReports>5?'var(--sos-red)':'var(--text)'}">${u.falseReports}</span></td><td><div style="display:flex;align-items:center;gap:6px"><span style="color:${tc};font-weight:700;font-family:var(--mono)">${u.trustScore}</span><div class="tbar"><div class="tfill" style="width:${u.trustScore}%;background:${tc}"></div></div></div></td><td><span class="badge ${sc}">${u.status}</span></td><td><div style="display:flex;gap:4px">${u.status==='active'?`<button class="btn btn-xs btn-amber" onclick="updUser('${u.id}','flagged')">🚩</button>`:''}${u.status==='flagged'?`<button class="btn btn-xs btn-danger" onclick="updUser('${u.id}','banned')">🚫</button>`:''}${u.status!=='active'?`<button class="btn btn-xs btn-success" onclick="updUser('${u.id}','active')">✓</button>`:''}</div></td></tr>`;
+  }).join('');
+}
+function updUser(id,status){
+  fetch(`/api/users/${id}/status`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})}).then(r=>r.json()).then(u=>{const i=S.users.findIndex(x=>x.id===id);if(i!==-1)S.users[i]=u;loadUsers();updBadges();toast('User Updated',`Status → ${status}`,'info');});
+}
+
+// ── RISK ──
+let riskMap=null;
+function loadRisk(){
+  document.getElementById('risk-upd').textContent='Loading…';
+  fetch('/api/risk/heatmap').then(r=>r.json()).then(d=>{
+    const crit=d.zones?.filter(z=>z.level==='CRITICAL').length||0;const high=d.zones?.filter(z=>z.level==='HIGH').length||0;
+    document.getElementById('r-tot').textContent=d.zones?.length||0;document.getElementById('r-crit').textContent=crit;document.getElementById('r-high').textContent=high;document.getElementById('r-src').textContent=d.source==='js-fallback'?'JS':'C++';
+    document.getElementById('risk-upd').textContent='Updated: '+new Date(d.generatedAt||Date.now()).toLocaleTimeString();
+    renderRiskMap(d);
+  }).catch(()=>{document.getElementById('risk-upd').textContent='Error loading';});
+}
+function renderRiskMap(d){
+  if(!riskMap){
+    riskMap=L.map('risk-map').setView(INDORE,INDORE_ZOOM);
+    const dk=document.documentElement.getAttribute('data-theme')==='dark';
+    L.tileLayer(getTiles(dk),{attribution:'© CartoDB',maxZoom:19}).addTo(riskMap);
+  }
+  riskMap.eachLayer(l=>{if(!(l instanceof L.TileLayer))riskMap.removeLayer(l);});
+  d.zones?.forEach(z=>{const c=z.level==='CRITICAL'?'#F97316':z.level==='HIGH'?'#F57F17':z.level==='MODERATE'?'#2D468C':'#2ECC71';L.circle([z.lat,z.lng],{radius:280,color:'transparent',fillColor:c,fillOpacity:z.riskScore*.55,weight:0}).addTo(riskMap).bindTooltip(`Risk: ${(z.riskScore*100).toFixed(0)}% (${z.level})`);});
+  S.incidents.filter(i=>i.status!=='rejected'&&i.lat).forEach(inc=>{L.circleMarker([inc.lat,inc.lng],{radius:5,color:sevColor(inc.severity),fillColor:sevColor(inc.severity),fillOpacity:.8,weight:1.5}).addTo(riskMap).bindPopup(`<b>${fmtType(inc.type)}</b><br>${inc.ward}`);});
+}
+setInterval(()=>{if(S.page==='risk')loadRisk();},5*60*1000);
+
+// ── ALERTS ──
+function ackAlert(id){fetch(`/api/alerts/${id}/acknowledge`,{method:'PATCH'}).then(r=>r.json()).then(u=>{const i=S.alerts.findIndex(a=>a.id===id);if(i!==-1)S.alerts[i]=u;renderDash();});}
+
+// ── MODAL ──
+function openModal(title,body,acts=[]){
+  document.getElementById('modal-ttl').textContent=title;
+  document.getElementById('modal-body').innerHTML=body;
+  document.getElementById('modal-acts').innerHTML=acts.map((a,i)=>`<button class="btn ${a.cls}" id="mb${i}">${a.label}</button>`).join('');
+  acts.forEach((a,i)=>document.getElementById('mb'+i).onclick=a.fn);
+  document.getElementById('mov').classList.add('open');
+}
+function closeModal(){document.getElementById('mov').classList.remove('open');}
+function closeMOv(e){if(e.target.id==='mov')closeModal();}
+
+// ── BROADCAST ──
+function openBroadcast(){openModal('📢 Send Area Alert',`<div class="mf"><label>Ward</label><select class="msel" id="bc-w"><option value="ALL">All Wards</option><option>Ward 3</option><option>Ward 5</option><option>Ward 7</option><option>Ward 9</option><option>Ward 12</option><option>Ward 15</option></select></div><div class="mf"><label>Alert Type</label><select class="msel" id="bc-t"><option value="SAFETY">Safety</option><option value="TRAFFIC">Traffic</option><option value="HEALTH">Health</option><option value="WEATHER">Weather</option></select></div><div class="mf"><label>Message</label><textarea class="mta" id="bc-m" placeholder="Enter alert message…"></textarea></div>`,[{label:'📢 Broadcast',cls:'btn-primary',fn:()=>{socket.emit('broadcast_alert',{ward:document.getElementById('bc-w').value,type:document.getElementById('bc-t').value,message:document.getElementById('bc-m').value});closeModal();toast('Alert Sent','Broadcast to Android app users','success');}},{label:'Cancel',cls:'btn-outline',fn:closeModal}]);}
+
+// ── SETTINGS ──
+function togSet(id){document.getElementById(id).classList.toggle('on');}
+function saveSettings(){toast('Settings Saved','Configuration updated','success');}
+function testConn(){fetch('/api/health').then(r=>r.json()).then(h=>toast('Connection OK',`v${h.version} · up ${h.uptime}s`,'success')).catch(()=>toast('Connection Failed','Cannot reach server','warning'));}
+
+// ── THEME ──
+function toggleTheme(){
+  const html=document.documentElement;
+  html.setAttribute('data-theme',html.getAttribute('data-theme')==='dark'?'light':'dark');
+  Object.values(S.charts).forEach(c=>{if(c)c.update();});
+  syncMapTiles();
+}
+
+// ── TOAST ──
+function toast(title,msg,type='info'){
+  const icons={sos:'🚨',info:'ℹ️',success:'✅',warning:'⚠️',error:'❌'};
+  const t=document.createElement('div');
+  t.className=`toast ${type}`;
+  t.innerHTML=`<span class="t-icon">${icons[type]||'ℹ️'}</span><div><div class="t-title">${title}</div>${msg?`<div class="t-msg">${msg}</div>`:''}</div>`;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),300);},type==='sos'?8000:4000);
+}
+
+// ── HELPERS ──
+function ago(ts){const d=Date.now()-ts;if(d<60000)return Math.round(d/1000)+'s ago';if(d<3600000)return Math.round(d/60000)+'m ago';if(d<86400000)return Math.round(d/3600000)+'h ago';return Math.round(d/86400000)+'d ago';}
+function fmtType(t){return {HARASSMENT:'Harassment',POOR_LIGHTING:'Poor Lighting',UNSAFE_SPOT:'Unsafe Spot',SUSPICIOUS_ACTIVITY:'Suspicious',ROAD_HAZARD:'Road Hazard',FLOOD_RISK:'Flood Risk'}[t]||t;}
+
+// ── PWA & SERVICE WORKER ──
+let pwaInstallPrompt=null;
+
+function dismissPWA(){
+  const b=document.getElementById('pwa-banner');
+  if(b){b.classList.add('hide');setTimeout(()=>b.style.display='none',300);}
+  sessionStorage.setItem('pwa-dismissed','1');
+}
+
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  pwaInstallPrompt=e;
+  if(!sessionStorage.getItem('pwa-dismissed')){
+    const b=document.getElementById('pwa-banner');
+    if(b) b.style.display='flex';
+  }
+});
+
+document.getElementById('pwa-install-btn')?.addEventListener('click',async()=>{
+  if(!pwaInstallPrompt)return;
+  pwaInstallPrompt.prompt();
+  const{outcome}=await pwaInstallPrompt.userChoice;
+  pwaInstallPrompt=null;
+  dismissPWA();
+  if(outcome==='accepted') toast('NagarSetu Installed','App added to home screen','success');
+});
+
+window.addEventListener('appinstalled',()=>{
+  dismissPWA();
+  toast('App Installed!','NagarSetu is now on your device','success');
+});
+
+// Offline detection
+function setOffline(offline){
+  const bar=document.getElementById('offline-bar');
+  if(bar) bar.style.display=offline?'block':'none';
+  const dot=document.getElementById('conn-dot');
+  const txt=document.getElementById('conn-txt');
+  if(offline){
+    if(dot) dot.style.background='var(--amber)';
+    if(txt) txt.textContent='Offline';
+  }
+}
+window.addEventListener('online',()=>setOffline(false));
+window.addEventListener('offline',()=>setOffline(true));
+if(!navigator.onLine) setOffline(true);
+
+// Register service worker
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js').then(reg=>{
+    console.log('[NagarSetu] SW registered',reg.scope);
+    reg.addEventListener('updatefound',()=>{
+      const nw=reg.installing;
+      nw.addEventListener('statechange',()=>{
+        if(nw.state==='installed'&&navigator.serviceWorker.controller){
+          toast('Update Available','Refresh for the latest version','info');
+        }
+      });
+    });
+  }).catch(err=>console.warn('[NagarSetu] SW registration failed',err));
+
+  // Listen for SW messages
+  navigator.serviceWorker.addEventListener('message',e=>{
+    if(e.data?.type==='SYNC_COMPLETE') toast('Synced','Offline actions submitted','success');
+  });
+}
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded',()=>{
+  const apis=['stats','incidents','sos','alerts','wards','users','officers'];
+  apis.forEach(api=>{
+    fetch(`/api/${api==='sos'?'sos':api==='stats'?'stats':api}`).then(r=>r.json()).then(d=>{
+      if(api==='stats'){S.stats={incidents:d.incidents,sos:d.sos,alerts:d.alerts,users:d.users,wards:d.wards};}
+      else if(api==='sos')S.sos=d;
+      else if(api==='incidents'){S.incidents=d;renderInc();updBadges();}
+      else if(api==='alerts')S.alerts=d;
+      else if(api==='wards')S.wards=d;
+      else if(api==='users'){S.users=d;updBadges();}
+      else if(api==='officers')S.officers=d;
+    }).catch(()=>{});
+  });
+
+  // Try to open from ?page= deeplink (PWA shortcut support)
+  const urlPage=new URLSearchParams(location.search).get('page');
+  if(urlPage&&document.getElementById('page-'+urlPage)) nav(urlPage);
+
+  setInterval(()=>{
+    if(S.page==='dashboard')document.getElementById('h-sub').textContent='Indore Municipal Corporation · '+new Date().toLocaleTimeString('en-IN');
+    if(S.page==='notifications')document.querySelectorAll('.ntime').forEach((el,i)=>{if(NS.items[i])el.textContent=ago(NS.items[i].time);});
+  },1000);
+});
+</script>
+</body>
+</html>

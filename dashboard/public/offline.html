@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NagarSetu — Offline</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: #080818;
+    color: #E8E8FF;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 24px;
+    text-align: center;
+    padding: 24px;
+  }
+  .icon { font-size: 72px; animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  h1 { font-size: 28px; font-weight: 800; color: #00D4FF; }
+  p { font-size: 14px; color: #8888AA; max-width: 360px; line-height: 1.6; }
+  .cached-info {
+    background: rgba(0,212,255,.06);
+    border: 1px solid rgba(0,212,255,.15);
+    border-radius: 12px;
+    padding: 16px 24px;
+    font-size: 13px;
+    color: #8888AA;
+    max-width: 400px;
+  }
+  .cached-info strong { color: #00D4FF; display: block; margin-bottom: 6px; }
+  button {
+    background: #2D468C;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 28px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .2s;
+  }
+  button:hover { background: #3D5A9F; }
+</style>
+</head>
+<body>
+  <div class="icon">📡</div>
+  <h1>You're Offline</h1>
+  <p>NagarSetu Command Center requires a live connection for real-time SOS and incident monitoring.</p>
+  <div class="cached-info">
+    <strong>⚡ What's still available offline</strong>
+    Previously loaded dashboard data, incident history, and map layers are cached and accessible.
+    Live Socket.IO updates will resume automatically when you reconnect.
+  </div>
+  <button onclick="location.href='/'">↺ Try Again</button>
+</body>
+</html>

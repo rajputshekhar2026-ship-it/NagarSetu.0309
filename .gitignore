@@ -1,0 +1,41 @@
+# IDE
+.idea/
+*.iml
+.kotlin/
+
+# Secrets (EXTREMELY IMPORTANT - Never commit these)
+local.properties
+.env
+local.properties.example
+.env.example
+**/local.properties
+**/local.properties.example
+**/.env
+**/.env.example
+
+# Android
+android/.gradle/
+android/build/
+android/*/build/
+android/captures/
+android/.externalNativeBuild/
+android/.cxx/
+android/output.json
+
+# Node.js
+dashboard/node_modules/
+dashboard/npm-debug.log*
+dashboard/yarn-debug.log*
+dashboard/yarn-error.log*
+dashboard/logs/
+
+# Build outputs
+*.apk
+*.aar
+*.jar
+*.exe
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
